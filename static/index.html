@@ -74,6 +74,16 @@
   .stat-item.warn .val { color: #ffb347; }
   .stat-item.danger .val { color: #ff6b6b; }
   .stat-item.good .val { color: #4ade80; }
+  .alert-icon {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 16px;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
   .progress-bar-bg {
     width: 100%;
     height: 8px;
@@ -258,7 +268,7 @@
         <button class="refresh-btn" onclick="loadData()">刷新</button>
       </div>
       <div class="stat-grid">
-        <div class="stat-item good">
+        <div class="stat-item good" id="remaining-item">
           <div class="val" id="remaining">--</div>
           <div class="label" id="remaining-label">剩余额度 (USD)</div>
         </div>
@@ -270,7 +280,7 @@
           <div class="val" id="month-usage">--</div>
           <div class="label" id="month-usage-label">本月累计消费 (USD)</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="today-usage-item">
           <div class="val" id="today-usage">--</div>
           <div class="label" id="today-usage-label">今日消费 (USD)</div>
         </div>
@@ -323,6 +333,10 @@ let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let exchangeRate = 7.1;
 
+// 预警阈值（均以 USD 原始金额判断，与展示币种无关）
+const REMAINING_DANGER_THRESHOLD = 9;   // 余额小于 $9 标红
+const TODAY_USAGE_WARN_THRESHOLD = 50;  // 今日累计超过 $50 标黄+感叹号
+
 function toggleCurrency() {
   currentCurrency = currentCurrency === "USD" ? "CNY" : "USD";
   localStorage.setItem("or_dashboard_currency", currentCurrency);
@@ -367,12 +381,28 @@ function render(data) {
 
   document.getElementById("remaining").innerText = fmt(acc.remaining, 2);
   document.getElementById("remaining-label").innerText = `剩余额度 (${unitLabel})`;
+  const remainingItem = document.getElementById("remaining-item");
+  if (acc.remaining < REMAINING_DANGER_THRESHOLD) {
+    remainingItem.classList.remove("good");
+    remainingItem.classList.add("danger");
+  } else {
+    remainingItem.classList.remove("danger");
+    remainingItem.classList.add("good");
+  }
   document.getElementById("total-usage").innerText = fmt(acc.total_usage, 2);
   document.getElementById("total-usage-label").innerText = `累计消费 (${unitLabel})`;
   document.getElementById("month-usage").innerText = fmt(acc.month_usage, 2);
   document.getElementById("month-usage-label").innerText = `本月累计消费 (${unitLabel})`;
-  document.getElementById("today-usage").innerText = fmt(data.today_usage, 4);
-  document.getElementById("today-usage-label").innerText = `今日消费 (${unitLabel})`;
+  const todayUsageItem = document.getElementById("today-usage-item");
+  const sourceNote = data.today_usage_source === "baseline" ? " · 实时估算" : "";
+  if (data.today_usage > TODAY_USAGE_WARN_THRESHOLD) {
+    todayUsageItem.classList.add("warn");
+    document.getElementById("today-usage").innerHTML = fmt(data.today_usage, 4) + ' <span class="alert-icon">⚠️</span>';
+  } else {
+    todayUsageItem.classList.remove("warn");
+    document.getElementById("today-usage").innerText = fmt(data.today_usage, 4);
+  }
+  document.getElementById("today-usage-label").innerText = `今日消费 (${unitLabel})${sourceNote}`;
 
   document.getElementById("rate-note").innerText = currentCurrency === "CNY"
     ? `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`

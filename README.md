@@ -13,6 +13,8 @@
 - 🏆 **模型调用排行**：按消费金额排序的柱状图（Top 8）
 - 🔍 **模型消费明细**：包含调用次数、Token 用量（输入/输出/总计），并自动匹配 Claude / GPT / DeepSeek / Gemini / Llama / Qwen / Mistral 等厂商官方 Logo
 - 💱 **汇率一键切换**：USD ⇄ CNY，汇率可在配置文件中自定义（默认 7.1，含手续费预留空间）
+- 🚨 **智能预警**：剩余额度低于 $9 自动标红；今日消费超过 $50 自动标黄并显示感叹号提醒
+- 🕛 **今日消费精准计算**：OpenRouter 官方 `/activity` 接口有 1~2 天数据延迟，本项目通过每日 0 点记录余额基准的方式，实时精确计算当日消费（不依赖延迟接口）
 - 📱 **PWA 支持**：可直接"添加到主屏幕"，像原生 App 一样使用，深色主题
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
@@ -72,7 +74,23 @@ python3 server.py
 
 启动后访问 `http://<你的服务器IP>:<端口>/`，输入 `dashboard_token` 中设置的口令即可查看看板。
 
-### 5. （推荐）设置开机自启
+### 5. （推荐）配置每日余额基准定时任务
+
+OpenRouter 官方的 `/activity` 接口存在延迟，无法准确反映"今日消费"。本项目通过 `baseline_capture.py` 脚本在每天 0 点记录一次余额基准，再用「基准余额 - 当前余额」实时推算当日消费。请配置 cron 让其每天自动运行一次：
+
+```bash
+crontab -e
+```
+
+添加一行（建议 0 点 01 分执行，避开整点高峰）：
+
+```
+1 0 * * * /usr/bin/python3 /path/to/openrouter-dashboard/baseline_capture.py >> /path/to/logs/baseline.log 2>&1
+```
+
+> 即使 cron 未及时执行，`server.py` 也会在当天首次访问时自动补写一个基准值兜底，保证功能不中断。
+
+### 6. （推荐）设置开机自启
 
 Linux (systemd) 示例：
 
@@ -99,7 +117,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now or-dashboard.service
 ```
 
-### 6. 手机安装为 PWA
+### 7. 手机安装为 PWA
 
 - **iOS Safari**：打开网页 → 点击分享按钮 → "添加到主屏幕"
 - **Android Chrome**：打开网页后会自动提示"安装应用"，或手动通过浏览器菜单安装
@@ -111,6 +129,7 @@ sudo systemctl enable --now or-dashboard.service
 ```
 openrouter-dashboard/
 ├── server.py              # 后端服务（Python 标准库 http.server，无框架依赖）
+├── baseline_capture.py    # 每日 0 点余额基准捕获脚本（配合 cron 使用，用于精确计算今日消费）
 ├── config.json.example    # 配置文件示例（真实配置请自行创建 config.json，不会被提交）
 ├── .gitignore
 ├── README.md

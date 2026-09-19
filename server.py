@@ -18,6 +18,7 @@ import requests
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+BASELINE_PATH = os.path.join(BASE_DIR, "daily_baseline.json")
 
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
@@ -96,8 +97,27 @@ def fetch_openrouter_summary():
         m["usage"] = round(m["usage"], 4)
 
     # 今日消费
+    # OpenRouter 的 /activity 接口有 1~2 天延迟，当天数据往往还未生成，直接取 daily_totals 会长期为 0。
+    # 优先使用自己记录的“当日 0 点基准额度”推算：今日消费 = 基准额度 - 当前剩余额度
     today = time.strftime("%Y-%m-%d")
-    today_usage = round(daily_totals.get(today, 0.0), 4)
+    activity_today_usage = round(daily_totals.get(today, 0.0), 4)
+    today_usage = activity_today_usage
+    today_usage_source = "activity"
+
+    baseline = load_daily_baseline()
+    if not baseline or baseline.get("date") != today:
+        # 当天基准不存在（例如 cron 未及时执行或服务首次启动），自动补写一个基准，以当前剩余额度作为今日起点
+        remaining_now = total_credits - total_usage
+        save_daily_baseline(today, remaining_now)
+        baseline = {"date": today, "remaining_at_midnight": remaining_now}
+
+    if baseline and baseline.get("date") == today:
+        remaining_now = total_credits - total_usage
+        baseline_remaining = baseline.get("remaining_at_midnight", remaining_now)
+        computed = round(baseline_remaining - remaining_now, 4)
+        # 取两者中较大的作为今日消费（避免 activity 滤迟导致低估），且不低于0
+        today_usage = max(computed, activity_today_usage, 0.0)
+        today_usage_source = "baseline" if computed >= activity_today_usage else "activity"
 
     # 本月累计消费（按当前自然月聚合 daily_totals）
     month_prefix = time.strftime("%Y-%m")
@@ -118,10 +138,37 @@ def fetch_openrouter_summary():
             "today_usage": today_usage,
         },
         "today_usage": today_usage,
+        "today_usage_source": today_usage_source,
         "month_usage": month_usage,
         "daily_series": daily_series,
         "model_ranking": model_ranking,
     }
+
+
+def load_daily_baseline():
+    if os.path.exists(BASELINE_PATH):
+        try:
+            with open(BASELINE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+    return None
+
+
+def save_daily_baseline(date_str, remaining):
+    tmp = BASELINE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "date": date_str,
+                "remaining_at_midnight": remaining,
+                "captured_at": int(time.time()),
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    os.replace(tmp, BASELINE_PATH)
 
 
 def get_summary_cached():
