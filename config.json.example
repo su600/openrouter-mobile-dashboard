@@ -1,0 +1,6 @@
+{
+  "openrouter_api_key": "sk-or-v1-your-openrouter-api-key-here",
+  "dashboard_token": "your-dashboard-access-token",
+  "port": 8080,
+  "usd_to_cny_rate": 7.1
+}

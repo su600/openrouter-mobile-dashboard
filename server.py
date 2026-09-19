@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+OpenRouter 手机看板后端
+- 服务端持有 OpenRouter API Key，前端只用一个访问口令(token)
+- 提供 /api/summary 聚合接口：账户余额/消费 + 近30天每日消费趋势 + 模型调用量排行
+- 静态页面 /（移动端自适应）
+"""
+import os
+import json
+import time
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
+
+import requests
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    CONFIG = json.load(f)
+
+OPENROUTER_KEY = CONFIG["openrouter_api_key"]
+DASHBOARD_TOKEN = CONFIG["dashboard_token"]
+PORT = CONFIG.get("port", 8899)
+USD_TO_CNY_RATE = CONFIG.get("usd_to_cny_rate", 7.1)
+
+HEADERS = {"Authorization": f"Bearer {OPENROUTER_KEY}"}
+
+# 简单的内存缓存，避免频繁打 OpenRouter API（60秒缓存）
+_cache = {"data": None, "ts": 0}
+_cache_lock = threading.Lock()
+CACHE_TTL = 60
+
+
+def fetch_openrouter_summary():
+    credits_resp = requests.get(
+        "https://openrouter.ai/api/v1/credits", headers=HEADERS, timeout=15
+    ).json()
+    key_resp = requests.get(
+        "https://openrouter.ai/api/v1/key", headers=HEADERS, timeout=15
+    ).json()
+    activity_resp = requests.get(
+        "https://openrouter.ai/api/v1/activity", headers=HEADERS, timeout=15
+    ).json()
+
+    credits = credits_resp.get("data", {})
+    key_info = key_resp.get("data", {})
+    activity = activity_resp.get("data", [])
+
+    total_credits = credits.get("total_credits", 0) or 0
+    total_usage = credits.get("total_usage", 0) or 0
+    remaining = total_credits - total_usage
+
+    # 按日期聚合总消费（用于趋势图）
+    daily_totals = {}
+    # 按模型聚合（用于排行）
+    model_totals = {}
+
+    for item in activity:
+        date = item.get("date", "")[:10]
+        usage = item.get("usage", 0) or 0
+        requests_cnt = item.get("requests", 0) or 0
+        prompt_tokens = item.get("prompt_tokens", 0) or 0
+        completion_tokens = item.get("completion_tokens", 0) or 0
+        model = item.get("model", "unknown")
+
+        daily_totals.setdefault(date, 0.0)
+        daily_totals[date] += usage
+
+        m = model_totals.setdefault(
+            model,
+            {
+                "model": model,
+                "usage": 0.0,
+                "requests": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+            },
+        )
+        m["usage"] += usage
+        m["requests"] += requests_cnt
+        m["prompt_tokens"] += prompt_tokens
+        m["completion_tokens"] += completion_tokens
+
+    daily_series = sorted(
+        [{"date": d, "usage": round(v, 4)} for d, v in daily_totals.items()],
+        key=lambda x: x["date"],
+    )
+    model_ranking = sorted(
+        model_totals.values(), key=lambda x: x["usage"], reverse=True
+    )
+    for m in model_ranking:
+        m["usage"] = round(m["usage"], 4)
+
+    # 今日消费
+    today = time.strftime("%Y-%m-%d")
+    today_usage = round(daily_totals.get(today, 0.0), 4)
+
+    # 本月累计消费（按当前自然月聚合 daily_totals）
+    month_prefix = time.strftime("%Y-%m")
+    month_usage = round(
+        sum(v for d, v in daily_totals.items() if d.startswith(month_prefix)), 4
+    )
+
+    return {
+        "generated_at": int(time.time()),
+        "exchange_rate": {
+            "usd_to_cny": USD_TO_CNY_RATE,
+        },
+        "account": {
+            "total_credits": round(total_credits, 4),
+            "remaining": round(remaining, 4),
+            "total_usage": round(total_usage, 4),
+            "month_usage": month_usage,
+            "today_usage": today_usage,
+        },
+        "today_usage": today_usage,
+        "month_usage": month_usage,
+        "daily_series": daily_series,
+        "model_ranking": model_ranking,
+    }
+
+
+def get_summary_cached():
+    with _cache_lock:
+        now = time.time()
+        if _cache["data"] is not None and (now - _cache["ts"]) < CACHE_TTL:
+            return _cache["data"]
+    data = fetch_openrouter_summary()
+    with _cache_lock:
+        _cache["data"] = data
+        _cache["ts"] = time.time()
+    return data
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        pass  # 静默日志，避免刷屏
+
+    def _send_json(self, obj, code=200):
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_file(self, path, content_type):
+        try:
+            with open(path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except FileNotFoundError:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+
+        if parsed.path == "/api/summary":
+            token = qs.get("token", [""])[0]
+            if token != DASHBOARD_TOKEN:
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+            try:
+                data = get_summary_cached()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            return
+
+        if parsed.path == "/" or parsed.path == "/index.html":
+            self._send_file(os.path.join(STATIC_DIR, "index.html"), "text/html; charset=utf-8")
+            return
+
+        # 静态资源（支持子目录，如 /logos/xxx.svg）
+        safe_path = os.path.normpath(parsed.path).lstrip("/")
+        full_path = os.path.join(STATIC_DIR, safe_path)
+        if full_path.startswith(STATIC_DIR) and os.path.isfile(full_path):
+            ext = os.path.splitext(full_path)[1]
+            ctype = {
+                ".js": "application/javascript",
+                ".css": "text/css",
+                ".png": "image/png",
+                ".svg": "image/svg+xml",
+                ".webp": "image/webp",
+                ".json": "application/json",
+            }.get(ext, "application/octet-stream")
+            self._send_file(full_path, ctype)
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+
+if __name__ == "__main__":
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"OpenRouter dashboard running on http://0.0.0.0:{PORT}")
+    server.serve_forever()

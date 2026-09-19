@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OpenRouter 账户看板</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OR看板">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    background: #0f1117;
+    color: #e6e8ec;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 20px 16px 12px;
+    background: linear-gradient(135deg, #1c1f2e, #12141d);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    font-weight: 600;
+  }
+  header .sub {
+    font-size: 12px;
+    color: #8b8fa3;
+  }
+  .container { padding: 12px 16px; }
+  .card {
+    background: #1a1d29;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .card-title {
+    font-size: 13px;
+    color: #8b8fa3;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .stat-item {
+    text-align: left;
+  }
+  .stat-item .val {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .stat-item .label {
+    font-size: 12px;
+    color: #8b8fa3;
+    margin-top: 2px;
+  }
+  .stat-item.warn .val { color: #ffb347; }
+  .stat-item.danger .val { color: #ff6b6b; }
+  .stat-item.good .val { color: #4ade80; }
+  .progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: #2a2e3f;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #ffb347, #ff6b6b);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  canvas { width: 100% !important; }
+  .rank-list { list-style: none; margin: 0; padding: 0; }
+  .rank-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #262a3a;
+  }
+  .rank-item:last-child { border-bottom: none; }
+  .rank-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rank-tokens {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #6b7085;
+  }
+  .rank-model {
+    font-size: 13px;
+    color: #e6e8ec;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rank-model span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .model-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .model-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 2px;
+    box-sizing: border-box;
+  }
+  .rank-meta {
+    text-align: right;
+  }
+  .rank-usage {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .rank-requests {
+    font-size: 11px;
+    color: #8b8fa3;
+  }
+  .refresh-btn {
+    background: #2a2e3f;
+    border: none;
+    color: #8b8fa3;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .empty, .error {
+    text-align: center;
+    color: #8b8fa3;
+    padding: 30px 0;
+    font-size: 13px;
+  }
+  .error { color: #ff6b6b; }
+  .footer {
+    text-align: center;
+    padding: 20px 16px 8px;
+    font-size: 11px;
+    color: #6b7085;
+    line-height: 1.8;
+  }
+  .login-box {
+    max-width: 320px;
+    margin: 80px auto;
+    text-align: center;
+  }
+  .login-box input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2e3f;
+    background: #1a1d29;
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .login-box button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #4ade80;
+    color: #0f1117;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .currency-toggle {
+    background: #2a2e3f;
+    border: 1px solid #3a3f55;
+    color: #e6e8ec;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .currency-toggle.active {
+    background: #4ade80;
+    color: #0f1117;
+    border-color: #4ade80;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rate-note {
+    font-size: 11px;
+    color: #6b7085;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="login-view" class="login-box" style="display:none;">
+  <h2>🔒 访问口令</h2>
+  <input id="token-input" type="password" placeholder="请输入访问口令" />
+  <button onclick="saveTokenAndLoad()">进入看板</button>
+</div>
+
+<div id="dashboard-view" style="display:none;">
+  <header>
+    <div class="header-top">
+      <h1>💳 OpenRouter 账户看板</h1>
+      <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+    </div>
+    <div class="sub" id="update-time">加载中...</div>
+    <div class="rate-note" id="rate-note"></div>
+  </header>
+
+  <div class="container">
+
+    <div class="card">
+      <div class="card-title">
+        <span>账户余额概览</span>
+        <button class="refresh-btn" onclick="loadData()">刷新</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-item good">
+          <div class="val" id="remaining">--</div>
+          <div class="label" id="remaining-label">剩余额度 (USD)</div>
+        </div>
+        <div class="stat-item warn">
+          <div class="val" id="total-usage">--</div>
+          <div class="label" id="total-usage-label">累计消费 (USD)</div>
+        </div>
+        <div class="stat-item">
+          <div class="val" id="month-usage">--</div>
+          <div class="label" id="month-usage-label">本月累计消费 (USD)</div>
+        </div>
+        <div class="stat-item">
+          <div class="val" id="today-usage">--</div>
+          <div class="label" id="today-usage-label">今日消费 (USD)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>近30天消费趋势 (USD/天)</span></div>
+      <canvas id="dailyChart" height="180"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>模型调用量排行 (近30天)</span></div>
+      <canvas id="modelChart" height="220"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>模型消费明细</span></div>
+      <ul class="rank-list" id="model-rank-list">
+        <li class="empty">加载中...</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div>由 <b>Pi Coding Agent</b> 构建维护</div>
+    <div id="footer-model">模型: anthropic/claude-sonnet-5 (openrouter)</div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = "or_dashboard_token";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function saveTokenAndLoad() {
+  const t = document.getElementById("token-input").value.trim();
+  if (!t) return;
+  localStorage.setItem(TOKEN_KEY, t);
+  init();
+}
+
+let dailyChartInstance = null;
+let modelChartInstance = null;
+let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
+let lastData = null;
+let exchangeRate = 7.1;
+
+function toggleCurrency() {
+  currentCurrency = currentCurrency === "USD" ? "CNY" : "USD";
+  localStorage.setItem("or_dashboard_currency", currentCurrency);
+  const btn = document.getElementById("currency-btn");
+  btn.innerText = currentCurrency;
+  btn.classList.toggle("active", currentCurrency === "CNY");
+  if (lastData) render(lastData);
+}
+
+async function loadData() {
+  const token = getToken();
+  if (!token) { showLogin(); return; }
+  try {
+    const resp = await fetch(`/api/summary?token=${encodeURIComponent(token)}`);
+    if (resp.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      showLogin();
+      return;
+    }
+    const data = await resp.json();
+    if (data.error) {
+      document.getElementById("update-time").innerText = "加载失败: " + data.error;
+      return;
+    }
+    render(data);
+  } catch (e) {
+    document.getElementById("update-time").innerText = "网络错误，请稍后重试";
+  }
+}
+
+function fmt(v, decimals) {
+  const rate = currentCurrency === "CNY" ? exchangeRate : 1;
+  const symbol = currentCurrency === "CNY" ? "￥" : "$";
+  return symbol + (v * rate).toFixed(decimals);
+}
+
+function render(data) {
+  lastData = data;
+  exchangeRate = (data.exchange_rate && data.exchange_rate.usd_to_cny) || 7.1;
+  const acc = data.account;
+  const unitLabel = currentCurrency === "CNY" ? "CNY" : "USD";
+
+  document.getElementById("remaining").innerText = fmt(acc.remaining, 2);
+  document.getElementById("remaining-label").innerText = `剩余额度 (${unitLabel})`;
+  document.getElementById("total-usage").innerText = fmt(acc.total_usage, 2);
+  document.getElementById("total-usage-label").innerText = `累计消费 (${unitLabel})`;
+  document.getElementById("month-usage").innerText = fmt(acc.month_usage, 2);
+  document.getElementById("month-usage-label").innerText = `本月累计消费 (${unitLabel})`;
+  document.getElementById("today-usage").innerText = fmt(data.today_usage, 4);
+  document.getElementById("today-usage-label").innerText = `今日消费 (${unitLabel})`;
+
+  document.getElementById("rate-note").innerText = currentCurrency === "CNY"
+    ? `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`
+    : "";
+
+  const btn = document.getElementById("currency-btn");
+  btn.innerText = currentCurrency;
+  btn.classList.toggle("active", currentCurrency === "CNY");
+
+  const t = new Date(data.generated_at * 1000);
+  document.getElementById("update-time").innerText = "更新时间: " + t.toLocaleString("zh-CN");
+
+  // 每日趋势图
+  const rate = currentCurrency === "CNY" ? exchangeRate : 1;
+  const currencyLabel = currentCurrency === "CNY" ? "CNY" : "USD";
+  const labels = data.daily_series.map(d => d.date.slice(5));
+  const values = data.daily_series.map(d => Math.round(d.usage * rate * 10000) / 10000);
+  const ctx1 = document.getElementById("dailyChart").getContext("2d");
+  if (dailyChartInstance) dailyChartInstance.destroy();
+  dailyChartInstance = new Chart(ctx1, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: `消费(${currencyLabel})`,
+        data: values,
+        borderColor: "#4ade80",
+        backgroundColor: "rgba(74,222,128,0.15)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#8b8fa3", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: "#262a3a" } },
+        y: { ticks: { color: "#8b8fa3" }, grid: { color: "#262a3a" } }
+      }
+    }
+  });
+
+  // 模型排行图（取前8个）
+  const topModels = data.model_ranking.slice(0, 8);
+  const mLabels = topModels.map(m => m.model.length > 20 ? m.model.slice(0,20)+"…" : m.model);
+  const mValues = topModels.map(m => Math.round(m.usage * rate * 10000) / 10000);
+  const ctx2 = document.getElementById("modelChart").getContext("2d");
+  if (modelChartInstance) modelChartInstance.destroy();
+  modelChartInstance = new Chart(ctx2, {
+    type: "bar",
+    data: {
+      labels: mLabels,
+      datasets: [{
+        label: `消费(${currencyLabel})`,
+        data: mValues,
+        backgroundColor: "#60a5fa",
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#8b8fa3" }, grid: { color: "#262a3a" } },
+        y: { ticks: { color: "#8b8fa3", font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // 明细列表
+  const listEl = document.getElementById("model-rank-list");
+  if (data.model_ranking.length === 0) {
+    listEl.innerHTML = '<li class="empty">暂无调用记录</li>';
+  } else {
+    listEl.innerHTML = data.model_ranking.map(m => {
+      const totalTokens = m.prompt_tokens + m.completion_tokens;
+      const icon = getModelIcon(m.model);
+      return `
+      <li class="rank-item">
+        <div class="rank-item-top">
+          <div class="rank-model">${icon}<span>${m.model}</span></div>
+          <div class="rank-meta">
+            <div class="rank-usage">${fmt(m.usage, 4)}</div>
+            <div class="rank-requests">${m.requests} 次调用</div>
+          </div>
+        </div>
+        <div class="rank-tokens">
+          <span>总 Token: ${formatTokens(totalTokens)}</span>
+          <span>输入: ${formatTokens(m.prompt_tokens)}</span>
+          <span>输出: ${formatTokens(m.completion_tokens)}</span>
+        </div>
+      </li>
+    `;
+    }).join("");
+  }
+}
+
+function getModelIcon(modelName) {
+  const name = modelName.toLowerCase();
+  const logoMap = [
+    { keys: ["claude", "anthropic"], file: "anthropic.svg", bg: "#CC9B7A" },
+    { keys: ["gpt", "openai", "o1", "o3", "o4"], file: "openai.svg", bg: "#ffffff" },
+    { keys: ["deepseek"], file: "deepseek.png", bg: "#ffffff" },
+    { keys: ["gemini", "google"], file: "google.svg", bg: "#ffffff" },
+    { keys: ["llama", "meta-llama", "meta/"], file: "meta.png", bg: "#ffffff" },
+    { keys: ["qwen", "alibaba"], file: "qwen.png", bg: "#ffffff" },
+    { keys: ["mistral"], file: "mistral.png", bg: "#ffffff" },
+  ];
+  for (const entry of logoMap) {
+    if (entry.keys.some(k => name.includes(k))) {
+      return `<span class="model-icon" style="background:${entry.bg};"><img src="/logos/${entry.file}" alt="" /></span>`;
+    }
+  }
+  return `<span class="model-icon" style="background:#6b7085;">?</span>`;
+}
+
+function formatTokens(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(n);
+}
+
+function showLogin() {
+  document.getElementById("login-view").style.display = "block";
+  document.getElementById("dashboard-view").style.display = "none";
+}
+
+function showDashboard() {
+  document.getElementById("login-view").style.display = "none";
+  document.getElementById("dashboard-view").style.display = "block";
+}
+
+function init() {
+  const token = getToken();
+  if (!token) {
+    showLogin();
+  } else {
+    showDashboard();
+    loadData();
+    setInterval(loadData, 60000); // 每60秒自动刷新
+  }
+}
+
+init();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
