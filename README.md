@@ -2,7 +2,9 @@
 
 一个轻量级、支持 PWA 安装的移动端看板，用于监控 [OpenRouter](https://openrouter.ai) 账户的消费情况和各模型调用量。仅依赖 Python 标准库 + 一个第三方 HTTP 库，无需 Node.js / 数据库，几分钟即可部署到任意 Linux 服务器。
 
-![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model](https://img.shields.io/badge/Model-Claude%20Sonnet%205-d97757)
+
+> 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)** 驱动 **`anthropic/claude-sonnet-5`**（通过 [OpenRouter](https://openrouter.ai) 调用）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
 
 ## ✨ 功能特性
 
@@ -142,6 +144,17 @@ openrouter-dashboard/
 - 请勿将填好真实 Key 的 `config.json` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
 - 建议将 `dashboard_token` 设置为足够随机、不易猜测的字符串
 - 如果部署在公网服务器，建议额外配置 HTTPS（可用 Nginx/Caddy 反向代理）以及防火墙限制访问来源
+
+## 🤖 关于本项目的构建方式
+
+本项目完全由 AI Agent 自主开发完成：
+
+| 项目 | 信息 |
+|---|---|
+| Agent 框架 | [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)（CLI 编码智能体） |
+| 使用模型 | `anthropic/claude-sonnet-5` |
+| 模型提供方 | [OpenRouter](https://openrouter.ai) |
+| 开发方式 | 通过自然语言对话，逐步迭代完成需求分析、前后端开发、PWA 适配、Logo 爬取、服务器部署（systemd 自启）、GitHub 仓库创建与发布 |
 
 ## 📄 License
 
