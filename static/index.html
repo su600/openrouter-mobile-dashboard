@@ -598,7 +598,7 @@
     </div>
 
     <div class="card">
-      <div class="card-title"><span>模型调用量排行 (近30天)</span></div>
+      <div class="card-title"><span>模型调用量排行 Top5 (近30天)</span></div>
       <div class="scroll-list" id="model-chart-scroll" style="max-height:420px;">
         <div class="chart-box" id="model-chart-box"><canvas id="modelChart"></canvas></div>
       </div>
@@ -835,8 +835,8 @@ function render(data) {
     }).join("");
   }
 
-  // 模型排行图（展示全部模型，根据数量动态设置高度，超高时容器内部滚动）
-  const topModels = data.model_ranking;
+  // 模型排行图（只取消费 > 0 的模型，取前5个）
+  const topModels = data.model_ranking.filter(m => m.usage > 0).slice(0, 5);
   const mLabels = topModels.map(m => m.model.length > 20 ? m.model.slice(0,20)+"…" : m.model);
   const mValues = topModels.map(m => Math.round(m.usage * rate * 10000) / 10000);
   const modelChartBox = document.getElementById("model-chart-box");
