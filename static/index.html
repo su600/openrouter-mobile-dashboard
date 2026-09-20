@@ -71,7 +71,7 @@
   /* ===== 大屏桌面端进一步优化 (>=1200px) ===== */
   @media (min-width: 1200px) {
     .container, header .header-inner { max-width: 1280px; }
-    .stat-item .val { font-size: 26px; }
+    .stat-item .val { font-size: 26px; line-height: 32px; height: 32px; }
   }
   .card {
     background: #1a1d29;
@@ -100,11 +100,21 @@
     font-size: 22px;
     font-weight: 700;
     color: #fff;
+    line-height: 28px;
+    height: 28px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .stat-item .label {
     font-size: 12px;
     color: #8b8fa3;
     margin-top: 2px;
+    line-height: 16px;
+    height: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .stat-item.warn .val { color: #ffb347; }
   .stat-item.danger .val { color: #ff6b6b; }
