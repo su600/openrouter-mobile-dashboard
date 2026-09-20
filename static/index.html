@@ -219,6 +219,18 @@
     border-radius: 3px;
   }
   .scroll-list::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+  .scroll-wrap { position: relative; }
+  .scroll-fade {
+    position: absolute;
+    left: 0; right: 6px; bottom: 0;
+    height: 28px;
+    background: linear-gradient(to bottom, transparent, var(--card-bg));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 0 0 8px 8px;
+  }
+  .scroll-fade.show { opacity: 1; }
   .rank-item {
     padding: 10px 0;
     border-bottom: 1px solid var(--divider);
@@ -606,9 +618,12 @@
 
     <div class="card">
       <div class="card-title"><span>模型消费明细</span></div>
-      <ul class="rank-list scroll-list" id="model-rank-list">
-        <li class="empty">加载中...</li>
-      </ul>
+      <div class="scroll-wrap" id="model-rank-scroll-wrap">
+        <ul class="rank-list scroll-list" id="model-rank-list">
+          <li class="empty">加载中...</li>
+        </ul>
+        <div class="scroll-fade" id="model-rank-fade"></div>
+      </div>
     </div>
 
   </div>
@@ -895,6 +910,21 @@ function render(data) {
     `;
     }).join("");
   }
+  setupScrollFade(listEl, document.getElementById("model-rank-fade"));
+}
+
+function setupScrollFade(listEl, fadeEl) {
+  if (!listEl || !fadeEl) return;
+  const update = () => {
+    const canScroll = listEl.scrollHeight - listEl.clientHeight > 4;
+    const atBottom = listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 4;
+    fadeEl.classList.toggle("show", canScroll && !atBottom);
+  };
+  update();
+  listEl.removeEventListener("scroll", listEl._fadeHandler || (() => {}));
+  listEl._fadeHandler = update;
+  listEl.addEventListener("scroll", update);
+  window.addEventListener("resize", update);
 }
 
 function getModelIcon(modelName) {
