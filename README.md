@@ -9,21 +9,25 @@
 ## ✨ 功能特性
 
 - 📊 **账户概览**：剩余额度、累计消费、本月累计消费、今日消费
-- 🆕 **新品新闻满满终**：账户概览下方自动无缝滚动展示 Claude / GPT / DeepSeek / Gemini / Llama / Qwen / Mistral 等主流厂商最新发布的模型及发布日期，数据来自 OpenRouter 官方模型列表接口（12 小时缓存）
+- 💳 **一键充值**：账户概览卡片直接跳转充值页面，并提示信用卡手续费规则（5.5%，最低收 $0.8，建议单次充值 ≥ $20 以避免最低费抬高实际费率）
+- 🆕 **新品新闻滚动条**：账户概览下方自动无缝滚动展示 Claude / GPT / DeepSeek / Gemini / Llama / Qwen / Mistral 等主流厂商最新发布的模型及发布日期，数据来自 OpenRouter 官方模型列表接口（12 小时缓存）
 - 📈 **消费趋势图**：近 30 天每日消费折线图
-- 🏆 **模型调用排行**：按消费金额排序的柱状图（Top 5）
-- 🔍 **模型消费明细**：包含调用次数、Token 用量（输入/输出/总计），并自动匹配各大厂商官方 Logo
+- 🧩 **App 消费分布**：按调用客户端（如 Claude Code、Codex、pi 等）拆分统计消费金额、调用次数、Token 用量及占比，并自动匹配各 App 官方图标；数据来自 OpenRouter 官方 Analytics API（`dimension=app`）
+- 🏆 **模型调用排行**：按消费金额排序的横向柱状图，展示全部模型（不限制数量），图表高度根据模型数量自适应，超过 420px 时容器内部纵向滚动
+- 🔍 **模型消费明细**：展示全部模型（不限制数量），包含调用次数、Token 用量（输入/输出/总计），并自动匹配各大厂商官方 Logo，同样支持超高时纵向滚动
 - 💱 **汇率一键切换**：USD ⇄ CNY，汇率可在配置文件中自定义（默认 7.1，含手续费预留空间），切换时数值区域固定行高，无任何布局跳动
+- 🌙 **深色 / 浅色双主题**：右上角一键切换，基于 CSS 变量驱动，图表配色、网格线、文字颜色均自动跟随主题切换，选择会持久化保存
+- ✨ **克制的交互动效**：卡片 hover 轻微上浮+阴影加深、页面加载时卡片错开淡入、按钮点击缩放反馈，并适配 `prefers-reduced-motion` 尊重系统减动画设置
 - 🚨 **智能预警**：剩余额度低于 $9 自动标红；今日消费超过 $50 自动标黄并显示感叹号提醒
 - 🕛 **今日消费精准计算**：OpenRouter 官方 `/activity` 接口有 1~2 天数据延迟，本项目通过每日 0 点记录余额基准的方式，实时精确计算当日消费（不依赖延迟接口）
-- 📱 **PWA 支持**：可直接“添加到主屏幕”，像原生 App 一样使用，深色主题
-- 💻 **响应式布局**：手机、平板、PC 全尺寸自适应（≥68px 多列网格、≥11200px 大屏优化）
+- 📱 **PWA 支持**：可直接“添加到主屏幕”，像原生 App 一样使用
+- 💻 **响应式布局**：手机、平板、PC 全尺寸自适应（≥68px 多列网格、≥11200px 大屏优化），修复了图表在不同尺寸下可能导致卡片重叠的问题
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
 
 ## 📸 界面预览
 
-深色简约风格，专为手机浏览器优化，支持自动横竖屏适配。
+深色/浅色双主题简约风格，专为手机浏览器优化，同时兼顾平板/PC大屏，支持自动横竖屏适配。
 
 ## 🚀 快速开始
 
@@ -141,25 +145,31 @@ openrouter-dashboard/
     ├── sw.js               # Service Worker（仅用于满足可安装条件，不做离线缓存）
     ├── icon-192.png        # PWA 图标
     ├── icon-512.png        # PWA 图标
-    └── logos/              # 各 AI 厂商官方 Logo（来自 openrouter.ai）
-        ├── anthropic.svg
+    └── logos/              # 各种图标资源
+        ├── anthropic.svg       # 模型厂商 Logo（来自 openrouter.ai）
         ├── openai.svg
         ├── deepseek.png
         ├── google.svg
         ├── meta.png
         ├── qwen.png
-        └── mistral.png
+        ├── mistral.png
+        └── apps/               # App 调用客户端官方图标
+            ├── claude-code.png
+            ├── codex.webp
+            └── pi.jpg
 ```
 
 ## 🔧 工作原理
 
-1. 后端 `server.py` 启动一个纯 Python HTTP 服务，暴露三个核心接口：
+1. 后端 `server.py` 启动一个纯 Python HTTP 服务，暴露四个核心接口：
    - `GET /` ：返回前端页面
-   - `GET /api/summary?token=xxx` ：聚合 OpenRouter 官方 API（`/credits`、`/key`、`/activity`）数据后返回 JSON，供前端渲染（60 秒缓存）
-   - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻满满组滠动展示（12 小时缓存）
+   - `GET /api/summary?token=xxx` ：聚合 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON，供前端渲染（60 秒缓存）
+   - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存）
+   - App 消费分布数据通过 `POST https://openrouter.ai/api/v1/analytics/query`（`dimensions: ["app"]`）获取，普通推理 API Key 即可调用，无需 Management Key
 2. 服务端持有真实的 OpenRouter API Key，通过环境隔离保证密钥不会暴露给浏览器/前端
 3. 前端仅需要一个自定义的访问口令（`dashboard_token`），存储在浏览器 `localStorage`，避免每次重新输入
 4. 前端内置预警阈值逻辑（剩余额度/今日消费）与响应式布局断点，均可在 `static/index.html` 中直接修改对应 JS 常量/CSS `@media` 断点
+5. 主题切换基于 CSS 变量（`:root` 与 `html[data-theme="light"]`）实现，选择保存在 `localStorage`，刷新后保持上次选择
 
 ## ⚠️ 安全提示
 
