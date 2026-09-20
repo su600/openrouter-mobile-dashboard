@@ -280,8 +280,11 @@
     font-size: 10px;
     color: #6b7085;
     white-space: nowrap;
-    min-height: 13px;
+    height: 13px;
+    line-height: 13px;
+    visibility: hidden;
   }
+  .rate-note.show { visibility: visible; }
 </style>
 </head>
 <body>
@@ -452,9 +455,9 @@ function render(data) {
   }
   document.getElementById("today-usage-label").innerText = `今日消费 (${unitLabel})${sourceNote}`;
 
-  document.getElementById("rate-note").innerText = currentCurrency === "CNY"
-    ? `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`
-    : "";
+  const rateNoteEl = document.getElementById("rate-note");
+  rateNoteEl.innerText = `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`;
+  rateNoteEl.classList.toggle("show", currentCurrency === "CNY");
 
   const btn = document.getElementById("currency-btn");
   btn.innerText = currentCurrency;
