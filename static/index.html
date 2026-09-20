@@ -14,28 +14,79 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; }
+  :root {
+    --bg: #0f1117;
+    --header-grad-1: #1c1f2e;
+    --header-grad-2: #12141d;
+    --text: #e6e8ec;
+    --text-strong: #ffffff;
+    --text-muted: #8b8fa3;
+    --text-faint: #6b7085;
+    --card-bg: #1a1d29;
+    --card-border: transparent;
+    --card-shadow: 0 2px 10px rgba(0,0,0,0.28);
+    --card-shadow-hover: 0 6px 18px rgba(0,0,0,0.34);
+    --divider: #262a3a;
+    --input-bg: #1a1d29;
+    --input-border: #2a2e3f;
+    --chip-bg: #2a2e3f;
+    --chip-border: #3a3f55;
+    --accent: #4ade80;
+    --accent-strong: #22c55e;
+    --accent-contrast: #0f1117;
+    --blue: #60a5fa;
+    --warn: #ffb347;
+    --danger: #ff6b6b;
+  }
+  html[data-theme="light"] {
+    --bg: #f3f5f9;
+    --header-grad-1: #ffffff;
+    --header-grad-2: #eef1f7;
+    --text: #232733;
+    --text-strong: #12141d;
+    --text-muted: #6b7180;
+    --text-faint: #8a90a0;
+    --card-bg: #ffffff;
+    --card-border: #e7e9f0;
+    --card-shadow: 0 2px 10px rgba(30,34,50,0.06);
+    --card-shadow-hover: 0 8px 20px rgba(30,34,50,0.10);
+    --divider: #edeff5;
+    --input-bg: #ffffff;
+    --input-border: #d9dce6;
+    --chip-bg: #eef0f6;
+    --chip-border: #dbdfeb;
+    --accent: #22c55e;
+    --accent-strong: #16a34a;
+    --accent-contrast: #ffffff;
+    --blue: #2563eb;
+    --warn: #d97706;
+    --danger: #dc2626;
+  }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-    background: #0f1117;
-    color: #e6e8ec;
+    background: var(--bg);
+    color: var(--text);
     padding-bottom: 40px;
+    transition: background 0.25s ease, color 0.25s ease;
   }
   header {
     padding: 20px 16px 12px;
-    background: linear-gradient(135deg, #1c1f2e, #12141d);
+    background: linear-gradient(135deg, var(--header-grad-1), var(--header-grad-2));
     position: sticky;
     top: 0;
     z-index: 10;
+    transition: background 0.25s ease;
   }
   header h1 {
     font-size: 18px;
     margin: 0 0 4px;
     font-weight: 600;
+    color: var(--text-strong);
   }
   header .sub {
     font-size: 12px;
-    color: #8b8fa3;
+    color: var(--text-muted);
   }
   .container {
     padding: 12px 16px;
@@ -74,15 +125,23 @@
     .stat-item .val { font-size: 26px; line-height: 32px; height: 32px; }
   }
   .card {
-    background: #1a1d29;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 14px;
     padding: 16px;
     margin-bottom: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow: var(--card-shadow);
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-1px);
   }
   .card-title {
     font-size: 13px;
-    color: #8b8fa3;
+    color: var(--text-muted);
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
@@ -99,16 +158,17 @@
   .stat-item .val {
     font-size: 22px;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-strong);
     line-height: 28px;
     height: 28px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.25s ease;
   }
   .stat-item .label {
     font-size: 12px;
-    color: #8b8fa3;
+    color: var(--text-muted);
     margin-top: 2px;
     line-height: 16px;
     height: 16px;
@@ -116,9 +176,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .stat-item.warn .val { color: #ffb347; }
-  .stat-item.danger .val { color: #ff6b6b; }
-  .stat-item.good .val { color: #4ade80; }
+  .stat-item.warn .val { color: var(--warn); }
+  .stat-item.danger .val { color: var(--danger); }
+  .stat-item.good .val { color: var(--accent); }
   .alert-icon {
     display: inline-block;
     margin-left: 4px;
@@ -132,24 +192,28 @@
   .progress-bar-bg {
     width: 100%;
     height: 8px;
-    background: #2a2e3f;
+    background: var(--chip-bg);
     border-radius: 4px;
     overflow: hidden;
     margin-top: 12px;
   }
   .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #4ade80, #ffb347, #ff6b6b);
+    background: linear-gradient(90deg, var(--accent), var(--warn), var(--danger));
     border-radius: 4px;
     transition: width 0.4s ease;
   }
   canvas { width: 100% !important; }
+  .chart-box { position: relative; width: 100%; }
   .rank-list { list-style: none; margin: 0; padding: 0; }
   .rank-item {
     padding: 10px 0;
-    border-bottom: 1px solid #262a3a;
+    border-bottom: 1px solid var(--divider);
+    transition: background 0.15s ease;
+    border-radius: 8px;
   }
   .rank-item:last-child { border-bottom: none; }
+  .rank-item:hover { background: var(--chip-bg); }
   .rank-item-top {
     display: flex;
     justify-content: space-between;
@@ -160,11 +224,11 @@
     gap: 12px;
     margin-top: 6px;
     font-size: 11px;
-    color: #6b7085;
+    color: var(--text-faint);
   }
   .rank-model {
     font-size: 13px;
-    color: #e6e8ec;
+    color: var(--text);
     max-width: 60%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -191,6 +255,7 @@
     font-weight: 700;
     flex-shrink: 0;
     overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.15);
   }
   .model-icon img {
     width: 100%;
@@ -205,29 +270,48 @@
   .rank-usage {
     font-size: 14px;
     font-weight: 600;
-    color: #fff;
+    color: var(--text-strong);
   }
   .rank-requests {
     font-size: 11px;
-    color: #8b8fa3;
+    color: var(--text-muted);
   }
   .refresh-btn {
-    background: #2a2e3f;
+    background: var(--chip-bg);
     border: none;
-    color: #8b8fa3;
+    color: var(--text-muted);
     border-radius: 8px;
     padding: 4px 10px;
     font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
   }
+  .refresh-btn:hover { background: var(--chip-border); }
+  .refresh-btn:active { transform: scale(0.95); }
+  .theme-toggle-btn {
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    color: var(--text-muted);
+    border-radius: 20px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .theme-toggle-btn:hover { background: var(--chip-border); }
+  .theme-toggle-btn:active { transform: scale(0.9) rotate(15deg); }
   .header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
   }
   .topup-btn {
-    background: linear-gradient(135deg, #4ade80, #22c55e);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border: none;
-    color: #0f1117;
+    color: var(--accent-contrast);
     border-radius: 8px;
     padding: 4px 10px;
     font-size: 12px;
@@ -237,10 +321,13 @@
     align-items: center;
     gap: 3px;
     cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
+  .topup-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(74,222,128,0.35); }
+  .topup-btn:active { transform: translateY(0); }
   .topup-tip {
     font-size: 11px;
-    color: #8b8fa3;
+    color: var(--text-muted);
     margin-top: -4px;
     margin-bottom: 12px;
     line-height: 1.5;
@@ -250,16 +337,16 @@
   }
   .empty, .error {
     text-align: center;
-    color: #8b8fa3;
+    color: var(--text-muted);
     padding: 30px 0;
     font-size: 13px;
   }
-  .error { color: #ff6b6b; }
+  .error { color: var(--danger); }
   .footer {
     text-align: center;
     padding: 20px 16px 8px;
     font-size: 11px;
-    color: #6b7085;
+    color: var(--text-faint);
     line-height: 1.8;
   }
   .login-box {
@@ -271,9 +358,9 @@
     width: 100%;
     padding: 12px;
     border-radius: 10px;
-    border: 1px solid #2a2e3f;
-    background: #1a1d29;
-    color: #fff;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text);
     font-size: 14px;
     margin-bottom: 12px;
   }
@@ -282,15 +369,19 @@
     padding: 12px;
     border-radius: 10px;
     border: none;
-    background: #4ade80;
-    color: #0f1117;
+    background: var(--accent);
+    color: var(--accent-contrast);
     font-weight: 600;
     font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .login-box button:active { transform: scale(0.98); }
   }
   .currency-toggle {
-    background: #2a2e3f;
-    border: 1px solid #3a3f55;
-    color: #e6e8ec;
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    color: var(--text);
     border-radius: 20px;
     padding: 6px 14px;
     font-size: 12px;
@@ -298,16 +389,25 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
   }
+  .currency-toggle:active { transform: scale(0.96); }
   .currency-toggle.active {
-    background: #4ade80;
-    color: #0f1117;
-    border-color: #4ade80;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-color: var(--accent);
   }
   .header-top {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 10px;
+  }
+  .header-toggles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .toggle-col {
     display: flex;
@@ -317,7 +417,7 @@
   }
   .rate-note {
     font-size: 10px;
-    color: #6b7085;
+    color: var(--text-faint);
     white-space: nowrap;
     height: 13px;
     line-height: 13px;
@@ -327,20 +427,22 @@
 
   /* 新模型发布新闻满满终 */
   .news-ticker {
-    background: #1a1d29;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 14px;
     margin-bottom: 14px;
     padding: 10px 0;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow: var(--card-shadow);
     display: flex;
     align-items: center;
+    transition: background 0.25s ease, border-color 0.25s ease;
   }
   .news-ticker .tag {
     flex-shrink: 0;
-    background: linear-gradient(135deg, #4ade80, #22c55e);
-    color: #0f1117;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: var(--accent-contrast);
     font-size: 11px;
     font-weight: 700;
     padding: 3px 10px;
@@ -367,20 +469,43 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: #c7cad6;
+    color: var(--text);
     margin-right: 40px;
   }
   .news-ticker .track span.item b {
-    color: #fff;
+    color: var(--text-strong);
     font-weight: 600;
   }
   .news-ticker .track span.item .news-date {
-    color: #6b7085;
+    color: var(--text-faint);
     font-size: 11px;
   }
   @keyframes ticker-scroll {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .container > .card,
+  .container > .news-ticker,
+  .container > .grid-2col {
+    animation: fade-in-up 0.35s ease both;
+  }
+  .container > .card:nth-child(1) { animation-delay: 0s; }
+  .container > .news-ticker { animation-delay: 0.04s; }
+  .container > .grid-2col { animation-delay: 0.08s; }
+  .container > .card:nth-child(4) { animation-delay: 0.12s; }
+  .container > .card:nth-child(5) { animation-delay: 0.16s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .container > .card, .container > .news-ticker, .container > .grid-2col,
+    .card, .alert-icon, .refresh-btn, .topup-btn, .theme-toggle-btn, .currency-toggle {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 </style>
 </head>
@@ -398,7 +523,10 @@
     <div class="header-top">
       <h1>💳 OpenRouter 账户看板</h1>
       <div class="toggle-col">
-        <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+        <div class="header-toggles">
+          <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" title="切换主题">🌙</button>
+          <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+        </div>
         <div class="rate-note" id="rate-note"></div>
       </div>
     </div>
@@ -447,7 +575,7 @@
     <div class="grid-2col">
       <div class="card">
         <div class="card-title"><span>近30天消费趋势 (USD/天)</span></div>
-        <canvas id="dailyChart" height="180"></canvas>
+        <div class="chart-box" style="height:200px;"><canvas id="dailyChart"></canvas></div>
       </div>
 
       <div class="card">
@@ -458,7 +586,7 @@
 
     <div class="card">
       <div class="card-title"><span>模型调用量排行 Top5 (近30天)</span></div>
-      <canvas id="modelChart" height="220"></canvas>
+      <div class="chart-box" style="height:240px;"><canvas id="modelChart"></canvas></div>
     </div>
 
     <div class="card">
@@ -473,7 +601,7 @@
   <div class="footer">
     <div>由 <b>Pi Coding Agent</b> 构建维护</div>
     <div id="footer-model">模型: anthropic/claude-sonnet-5 (openrouter)</div>
-    <div><a href="https://github.com/su600/openrouter-mobile-dashboard" target="_blank" style="color:#6b7085;">GitHub 开源仓库 →</a></div>
+    <div><a href="https://github.com/su600/openrouter-mobile-dashboard" target="_blank" style="color:var(--text-faint);">GitHub 开源仓库 →</a></div>
   </div>
 </div>
 
@@ -508,6 +636,34 @@ function toggleCurrency() {
   btn.innerText = currentCurrency;
   btn.classList.toggle("active", currentCurrency === "CNY");
   if (lastData) render(lastData);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const themeBtn = document.getElementById("theme-btn");
+  if (themeBtn) themeBtn.innerText = theme === "light" ? "☀️" : "🌙";
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#f3f5f9" : "#0f1117");
+}
+
+function toggleTheme() {
+  const current = localStorage.getItem("or_dashboard_theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  localStorage.setItem("or_dashboard_theme", next);
+  applyTheme(next);
+  if (lastData) render(lastData);
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem("or_dashboard_theme") || "dark";
+  applyTheme(saved);
+})();
+
+function getChartColors() {
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  return isLight
+    ? { text: "#6b7180", grid: "#edeff5" }
+    : { text: "#8b8fa3", grid: "#262a3a" };
 }
 
 async function loadData() {
@@ -614,6 +770,7 @@ function render(data) {
   const currencyLabel = currentCurrency === "CNY" ? "CNY" : "USD";
   const labels = data.daily_series.map(d => d.date.slice(5));
   const values = data.daily_series.map(d => Math.round(d.usage * rate * 10000) / 10000);
+  const chartColors = getChartColors();
   const ctx1 = document.getElementById("dailyChart").getContext("2d");
   if (dailyChartInstance) dailyChartInstance.destroy();
   dailyChartInstance = new Chart(ctx1, {
@@ -632,10 +789,11 @@ function render(data) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: "#8b8fa3", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: "#262a3a" } },
-        y: { ticks: { color: "#8b8fa3" }, grid: { color: "#262a3a" } }
+        x: { ticks: { color: chartColors.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: chartColors.grid } },
+        y: { ticks: { color: chartColors.text }, grid: { color: chartColors.grid } }
       }
     }
   });
@@ -682,10 +840,11 @@ function render(data) {
     options: {
       indexAxis: "y",
       responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: "#8b8fa3" }, grid: { color: "#262a3a" } },
-        y: { ticks: { color: "#8b8fa3", font: { size: 11 } }, grid: { display: false } }
+        x: { ticks: { color: chartColors.text }, grid: { color: chartColors.grid } },
+        y: { ticks: { color: chartColors.text, font: { size: 11 } }, grid: { display: false } }
       }
     }
   });
