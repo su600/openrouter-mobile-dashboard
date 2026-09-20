@@ -179,6 +179,67 @@
   .stat-item.warn .val { color: var(--warn); }
   .stat-item.danger .val { color: var(--danger); }
   .stat-item.good .val { color: var(--accent); }
+  .stat-item.clickable { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: -4px -6px; transition: background 0.15s ease; }
+  .stat-item.clickable:hover { background: var(--chip-bg); }
+  .stat-item.clickable:active { transform: scale(0.98); }
+  .click-hint { font-size: 10px; opacity: 0.6; }
+
+  /* ===== 弹窗 App消费分布 ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalPop 0.18s ease;
+  }
+  @keyframes modalPop {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+  .modal-close:hover { background: var(--chip-bg); }
+  .modal-body {
+    padding: 8px 18px 18px;
+    overflow-y: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .modal-box { animation: none; }
+  }
   .alert-icon {
     display: inline-block;
     margin-left: 4px;
@@ -579,13 +640,13 @@
           <div class="val" id="total-usage">--</div>
           <div class="label" id="total-usage-label">累计消费 (USD)</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item clickable" id="month-usage-item" onclick="openAppUsageModal('month')">
           <div class="val" id="month-usage">--</div>
-          <div class="label" id="month-usage-label">本月累计消费 (USD)</div>
+          <div class="label" id="month-usage-label">本月累计消费 (USD) <span class="click-hint">⊘</span></div>
         </div>
-        <div class="stat-item" id="today-usage-item">
+        <div class="stat-item clickable" id="today-usage-item" onclick="openAppUsageModal('today')">
           <div class="val" id="today-usage">--</div>
-          <div class="label" id="today-usage-label">今日消费 (USD)</div>
+          <div class="label" id="today-usage-label">今日消费 (USD) <span class="click-hint">⊘</span></div>
         </div>
       </div>
     </div>
@@ -632,6 +693,20 @@
     <div>由 <b>Pi Coding Agent</b> 构建维护</div>
     <div id="footer-model">模型: anthropic/claude-sonnet-5 (openrouter)</div>
     <div><a href="https://github.com/su600/openrouter-mobile-dashboard" target="_blank" style="color:var(--text-faint);">GitHub 开源仓库 →</a></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="app-usage-modal" onclick="if(event.target===this) closeAppUsageModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="app-usage-modal-title">App 消费分布</span>
+      <button class="modal-close" onclick="closeAppUsageModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <ul class="rank-list" id="app-usage-modal-list">
+        <li class="empty">加载中...</li>
+      </ul>
+    </div>
   </div>
 </div>
 
@@ -722,6 +797,55 @@ function fmt(v, decimals) {
   const symbol = currentCurrency === "CNY" ? "￥" : "$";
   return symbol + (v * rate).toFixed(decimals);
 }
+
+// ===== 今日/本月 App 消费分布弹窗 =====
+async function openAppUsageModal(range) {
+  const modal = document.getElementById("app-usage-modal");
+  const titleEl = document.getElementById("app-usage-modal-title");
+  const listEl = document.getElementById("app-usage-modal-list");
+  titleEl.innerText = range === "today" ? "📅 今日各 App 消费分布" : "🗓️ 本月各 App 消费分布";
+  listEl.innerHTML = '<li class="empty">加载中...</li>';
+  modal.classList.add("show");
+
+  const token = getToken();
+  const url = range === "today" ? "/api/app_usage_today" : "/api/app_usage_month";
+  try {
+    const resp = await fetch(`${url}?token=${encodeURIComponent(token)}`);
+    const data = await resp.json();
+    if (data.error) {
+      listEl.innerHTML = `<li class="error">加载失败: ${data.error}</li>`;
+      return;
+    }
+    const rows = data.app_ranking || [];
+    if (rows.length === 0) {
+      listEl.innerHTML = '<li class="empty">暂无消费记录</li>';
+      return;
+    }
+    const total = rows.reduce((a, b) => a + b.usage, 0) || 1;
+    listEl.innerHTML = rows.map(a => {
+      const icon = getAppIcon(a.app);
+      const pct = ((a.usage / total) * 100).toFixed(1);
+      return `
+      <li class="rank-item">
+        <div class="rank-item-top">
+          <div class="rank-model">${icon}<span>${a.app}</span></div>
+          <div class="rank-usage">${fmt(a.usage, 4)}</div>
+        </div>
+        <div class="rank-requests">${a.requests} 次调用 · ${formatTokens(a.tokens_total)} tokens · ${pct}%</div>
+      </li>`;
+    }).join("");
+  } catch (e) {
+    listEl.innerHTML = `<li class="error">加载失败: ${e.message}</li>`;
+  }
+}
+
+function closeAppUsageModal() {
+  document.getElementById("app-usage-modal").classList.remove("show");
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeAppUsageModal();
+});
 
 let newsLoaded = false;
 async function loadNewsTicker() {

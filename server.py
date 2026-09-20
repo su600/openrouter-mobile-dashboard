@@ -101,13 +101,16 @@ def get_latest_models_cached():
         return data
 
 
-def fetch_app_usage():
-    """调用 OpenRouter 官方 Analytics API，按 App 维度查询近30天消费分布。
+def fetch_app_usage(start=None, end=None):
+    """调用 OpenRouter 官方 Analytics API，按 App 维度查询消费分布。
     文档: POST /api/v1/analytics/query, dimensions=["app"]，普通推理 Key 即可调用，无需 Management Key。
+    不传 start/end 时默认查询近30天（用于首页“App 消费分布”卡片）。
     """
     now = time.time()
-    start = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(now - 30 * 86400))
-    end = time.strftime("%Y-%m-%dT23:59:59Z", time.gmtime(now))
+    if start is None:
+        start = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(now - 30 * 86400))
+    if end is None:
+        end = time.strftime("%Y-%m-%dT23:59:59Z", time.gmtime(now))
     try:
         resp = requests.post(
             "https://openrouter.ai/api/v1/analytics/query",
@@ -134,6 +137,32 @@ def fetch_app_usage():
         return result
     except Exception:
         return []
+
+
+def fetch_app_usage_today():
+    """今日（本地 0 点至现在）各 App 消费分布，用于点击“今日消费”弹窗。
+    注意：Analytics API 的 time_range 使用 UTC，这里按本地时区(Asia/Shanghai, UTC+8)推算当天 0 点对应的 UTC 时间。
+    """
+    now = time.time()
+    local_now = time.localtime(now)
+    local_date_str = time.strftime("%Y-%m-%d", local_now)
+    local_midnight_struct = time.strptime(local_date_str + " 00:00:00", "%Y-%m-%d %H:%M:%S")
+    local_midnight_ts = time.mktime(local_midnight_struct)
+    start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
+    end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+    return fetch_app_usage(start=start, end=end)
+
+
+def fetch_app_usage_month():
+    """本自然月（本地 1 号 0 点至现在）各 App 消费分布，用于点击“本月累计消费”弹窗。"""
+    now = time.time()
+    local_now = time.localtime(now)
+    month_first_str = time.strftime("%Y-%m-01", local_now)
+    local_midnight_struct = time.strptime(month_first_str + " 00:00:00", "%Y-%m-%d %H:%M:%S")
+    local_midnight_ts = time.mktime(local_midnight_struct)
+    start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
+    end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+    return fetch_app_usage(start=start, end=end)
 
 
 def fetch_openrouter_summary():
@@ -338,6 +367,30 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_latest_models_cached()
                 self._send_json({"news": data})
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            return
+
+        if parsed.path == "/api/app_usage_today":
+            token = qs.get("token", [""])[0]
+            if token != DASHBOARD_TOKEN:
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+            try:
+                data = fetch_app_usage_today()
+                self._send_json({"app_ranking": data})
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            return
+
+        if parsed.path == "/api/app_usage_month":
+            token = qs.get("token", [""])[0]
+            if token != DASHBOARD_TOKEN:
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+            try:
+                data = fetch_app_usage_month()
+                self._send_json({"app_ranking": data})
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             return
