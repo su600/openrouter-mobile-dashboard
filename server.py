@@ -35,6 +35,71 @@ _cache = {"data": None, "ts": 0}
 _cache_lock = threading.Lock()
 CACHE_TTL = 60
 
+# 模型发布新闻满三方缓存（变化不频繁，缓存1小时）
+_models_cache = {"data": None, "ts": 0}
+_models_cache_lock = threading.Lock()
+MODELS_CACHE_TTL = 3600
+
+# 关注的主流厂商关键词匹配规则（与前端 getModelIcon 保持一致）
+VENDOR_RULES = [
+    ("Anthropic", ["claude", "anthropic"]),
+    ("OpenAI", ["openai/", "gpt-", " gpt", "o1-", "o3-", "o4-"]),
+    ("DeepSeek", ["deepseek"]),
+    ("Google", ["google/", "gemini"]),
+    ("Meta", ["meta-llama", "llama"]),
+    ("Qwen", ["qwen"]),
+    ("Mistral", ["mistral"]),
+]
+
+
+def guess_vendor(model_id, model_name):
+    text = f"{model_id} {model_name}".lower()
+    for vendor, keys in VENDOR_RULES:
+        for k in keys:
+            if k in text:
+                return vendor
+    return None
+
+
+def fetch_latest_models():
+    """拉取 OpenRouter 全量模型列表，按关注厂商分组，取每家最新的一个模型作为“新闻”"""
+    resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
+    resp.raise_for_status()
+    models = resp.json().get("data", [])
+
+    latest_by_vendor = {}
+    for m in models:
+        model_id = m.get("id", "")
+        model_name = m.get("name", "")
+        created = m.get("created", 0)
+        vendor = guess_vendor(model_id, model_name)
+        if not vendor:
+            continue
+        cur = latest_by_vendor.get(vendor)
+        if not cur or created > cur["created"]:
+            latest_by_vendor[vendor] = {
+                "vendor": vendor,
+                "model_id": model_id,
+                "model_name": model_name,
+                "created": created,
+            }
+
+    news = sorted(latest_by_vendor.values(), key=lambda x: x["created"], reverse=True)
+    for item in news:
+        item["date"] = time.strftime("%Y-%m-%d", time.localtime(item["created"]))
+    return news
+
+
+def get_latest_models_cached():
+    with _models_cache_lock:
+        now = time.time()
+        if _models_cache["data"] is not None and now - _models_cache["ts"] < MODELS_CACHE_TTL:
+            return _models_cache["data"]
+        data = fetch_latest_models()
+        _models_cache["data"] = data
+        _models_cache["ts"] = now
+        return data
+
 
 def fetch_openrouter_summary():
     credits_resp = requests.get(
@@ -220,6 +285,18 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_summary_cached()
                 self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            return
+
+        if parsed.path == "/api/latest_models":
+            token = qs.get("token", [""])[0]
+            if token != DASHBOARD_TOKEN:
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+            try:
+                data = get_latest_models_cached()
+                self._send_json({"news": data})
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             return

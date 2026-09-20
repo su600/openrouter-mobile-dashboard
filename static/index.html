@@ -295,6 +295,64 @@
     visibility: hidden;
   }
   .rate-note.show { visibility: visible; }
+
+  /* 新模型发布新闻满满终 */
+  .news-ticker {
+    background: #1a1d29;
+    border-radius: 14px;
+    margin-bottom: 14px;
+    padding: 10px 0;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+  }
+  .news-ticker .tag {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: #0f1117;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-left: 12px;
+    margin-right: 10px;
+    white-space: nowrap;
+  }
+  .news-ticker .track-wrap {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    height: 20px;
+  }
+  .news-ticker .track {
+    display: flex;
+    position: absolute;
+    white-space: nowrap;
+    will-change: transform;
+    animation: ticker-scroll linear infinite;
+  }
+  .news-ticker .track span.item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #c7cad6;
+    margin-right: 40px;
+  }
+  .news-ticker .track span.item b {
+    color: #fff;
+    font-weight: 600;
+  }
+  .news-ticker .track span.item .news-date {
+    color: #6b7085;
+    font-size: 11px;
+  }
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
 </style>
 </head>
 <body>
@@ -353,8 +411,15 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span>模型调用量排行 (近30天)</span></div>
+        <div class="card-title"><span>模型调用量排行 Top5 (近30天)</span></div>
         <canvas id="modelChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="news-ticker" id="news-ticker" style="display:none;">
+      <span class="tag">🆕 新品</span>
+      <div class="track-wrap">
+        <div class="track" id="news-track"></div>
       </div>
     </div>
 
@@ -434,6 +499,36 @@ function fmt(v, decimals) {
   return symbol + (v * rate).toFixed(decimals);
 }
 
+let newsLoaded = false;
+async function loadNewsTicker() {
+  if (newsLoaded) return;
+  const token = getToken();
+  if (!token) return;
+  try {
+    const resp = await fetch(`/api/latest_models?token=${encodeURIComponent(token)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data.news || data.news.length === 0) return;
+    const track = document.getElementById("news-track");
+    const buildItems = () => data.news.map(n => {
+      const icon = getModelIcon(n.model_id);
+      return `<span class="item">${icon}<b>${n.vendor}</b> 发布 ${n.model_name} <span class="news-date">${n.date}</span></span>`;
+    }).join("");
+    // 复制两份拼接，配合 translateX(-50%) 实现无缝循环滚动
+    track.innerHTML = buildItems() + buildItems();
+    document.getElementById("news-ticker").style.display = "flex";
+    // 根据内容宽度动态设置动画时长，保证滚动速度相对恒定
+    requestAnimationFrame(() => {
+      const singleWidth = track.scrollWidth / 2;
+      const duration = Math.max(15, singleWidth / 50); // 每秒约滚动50px
+      track.style.animationDuration = duration + "s";
+    });
+    newsLoaded = true;
+  } catch (e) {
+    // 静默失败，不影响主看板
+  }
+}
+
 function render(data) {
   lastData = data;
   exchangeRate = (data.exchange_rate && data.exchange_rate.usd_to_cny) || 7.1;
@@ -507,8 +602,8 @@ function render(data) {
     }
   });
 
-  // 模型排行图（取前8个）
-  const topModels = data.model_ranking.slice(0, 8);
+  // 模型排行图（取前5个）
+  const topModels = data.model_ranking.slice(0, 5);
   const mLabels = topModels.map(m => m.model.length > 20 ? m.model.slice(0,20)+"…" : m.model);
   const mValues = topModels.map(m => Math.round(m.usage * rate * 10000) / 10000);
   const ctx2 = document.getElementById("modelChart").getContext("2d");
@@ -537,10 +632,11 @@ function render(data) {
 
   // 明细列表
   const listEl = document.getElementById("model-rank-list");
-  if (data.model_ranking.length === 0) {
+  const top5Ranking = data.model_ranking.slice(0, 5);
+  if (top5Ranking.length === 0) {
     listEl.innerHTML = '<li class="empty">暂无调用记录</li>';
   } else {
-    listEl.innerHTML = data.model_ranking.map(m => {
+    listEl.innerHTML = top5Ranking.map(m => {
       const totalTokens = m.prompt_tokens + m.completion_tokens;
       const icon = getModelIcon(m.model);
       return `
@@ -605,6 +701,7 @@ function init() {
   } else {
     showDashboard();
     loadData();
+    loadNewsTicker();
     setInterval(loadData, 60000); // 每60秒自动刷新
   }
 }
