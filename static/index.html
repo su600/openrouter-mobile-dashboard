@@ -244,6 +244,9 @@
     margin-top: -4px;
     margin-bottom: 12px;
     line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .empty, .error {
     text-align: center;
@@ -413,7 +416,7 @@
           <button class="refresh-btn" onclick="loadData()">刷新</button>
         </div>
       </div>
-      <div class="topup-tip">ℹ️ 信用卡充值手续费 5.5%，最低收 $0.8，建议单次充值 ≥ $20 以避免最低费抬高实际费率</div>
+      <div class="topup-tip">ℹ️ 手续费 5.5%（最低$0.8），建议充值≥$20</div>
       <div class="stat-grid">
         <div class="stat-item good" id="remaining-item">
           <div class="val" id="remaining">--</div>
