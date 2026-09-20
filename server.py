@@ -206,16 +206,21 @@ def fetch_openrouter_summary():
 
     baseline = load_daily_baseline()
     if not baseline or baseline.get("date") != today:
-        # 当天基准不存在（例如 cron 未及时执行或服务首次启动），自动补写一个基准，以当前剩余额度作为今日起点
-        remaining_now = total_credits - total_usage
-        save_daily_baseline(today, remaining_now)
-        baseline = {"date": today, "remaining_at_midnight": remaining_now}
+        # 当天基准不存在（例如 cron 未及时执行或服务首次启动），自动补写一个基准，以当前累计消费总额作为今日起点
+        save_daily_baseline(today, total_usage)
+        baseline = {"date": today, "total_usage_at_midnight": total_usage}
 
     if baseline and baseline.get("date") == today:
-        remaining_now = total_credits - total_usage
-        baseline_remaining = baseline.get("remaining_at_midnight", remaining_now)
-        computed = round(baseline_remaining - remaining_now, 4)
-        # 取两者中较大的作为今日消费（避免 activity 滤迟导致低估），且不低于0
+        # 优先使用 total_usage_at_midnight（累计消费总额基准，只增不减，不受充值干扰）
+        # 兼容旧版 baseline 文件（字段为 remaining_at_midnight，基于余额，会被充值干扰）
+        if "total_usage_at_midnight" in baseline:
+            baseline_total_usage = baseline["total_usage_at_midnight"]
+            computed = round(total_usage - baseline_total_usage, 4)
+        else:
+            remaining_now = total_credits - total_usage
+            baseline_remaining = baseline.get("remaining_at_midnight", remaining_now)
+            computed = round(baseline_remaining - remaining_now, 4)
+        # 取两者中较大的作为今日消费（避免 activity 滞迟导致低估），且不低于0
         today_usage = max(computed, activity_today_usage, 0.0)
         today_usage_source = "baseline" if computed >= activity_today_usage else "activity"
 
@@ -256,13 +261,13 @@ def load_daily_baseline():
     return None
 
 
-def save_daily_baseline(date_str, remaining):
+def save_daily_baseline(date_str, total_usage_at_midnight):
     tmp = BASELINE_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "date": date_str,
-                "remaining_at_midnight": remaining,
+                "total_usage_at_midnight": total_usage_at_midnight,
                 "captured_at": int(time.time()),
             },
             f,
