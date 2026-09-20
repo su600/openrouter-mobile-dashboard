@@ -238,6 +238,13 @@
     gap: 3px;
     cursor: pointer;
   }
+  .topup-tip {
+    font-size: 11px;
+    color: #8b8fa3;
+    margin-top: -4px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
   .empty, .error {
     text-align: center;
     color: #8b8fa3;
@@ -406,6 +413,7 @@
           <button class="refresh-btn" onclick="loadData()">刷新</button>
         </div>
       </div>
+      <div class="topup-tip">ℹ️ 信用卡充值手续费 5.5%，最低收 $0.8，建议单次充值 ≥ $15 以避免最低费抬高实际费率</div>
       <div class="stat-grid">
         <div class="stat-item good" id="remaining-item">
           <div class="val" id="remaining">--</div>
