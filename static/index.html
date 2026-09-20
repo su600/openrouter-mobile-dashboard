@@ -206,6 +206,19 @@
   canvas { width: 100% !important; }
   .chart-box { position: relative; width: 100%; }
   .rank-list { list-style: none; margin: 0; padding: 0; }
+  .scroll-list {
+    max-height: 420px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--chip-border) transparent;
+  }
+  .scroll-list::-webkit-scrollbar { width: 6px; }
+  .scroll-list::-webkit-scrollbar-track { background: transparent; }
+  .scroll-list::-webkit-scrollbar-thumb {
+    background: var(--chip-border);
+    border-radius: 3px;
+  }
+  .scroll-list::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
   .rank-item {
     padding: 10px 0;
     border-bottom: 1px solid var(--divider);
@@ -591,7 +604,7 @@
 
     <div class="card">
       <div class="card-title"><span>模型消费明细</span></div>
-      <ul class="rank-list" id="model-rank-list">
+      <ul class="rank-list scroll-list" id="model-rank-list">
         <li class="empty">加载中...</li>
       </ul>
     </div>
@@ -851,11 +864,11 @@ function render(data) {
 
   // 明细列表
   const listEl = document.getElementById("model-rank-list");
-  const top5Ranking = data.model_ranking.slice(0, 5);
-  if (top5Ranking.length === 0) {
+  const allRanking = data.model_ranking;
+  if (allRanking.length === 0) {
     listEl.innerHTML = '<li class="empty">暂无调用记录</li>';
   } else {
-    listEl.innerHTML = top5Ranking.map(m => {
+    listEl.innerHTML = allRanking.map(m => {
       const totalTokens = m.prompt_tokens + m.completion_tokens;
       const icon = getModelIcon(m.model);
       return `
