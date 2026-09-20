@@ -101,6 +101,41 @@ def get_latest_models_cached():
         return data
 
 
+def fetch_app_usage():
+    """调用 OpenRouter 官方 Analytics API，按 App 维度查询近30天消费分布。
+    文档: POST /api/v1/analytics/query, dimensions=["app"]，普通推理 Key 即可调用，无需 Management Key。
+    """
+    now = time.time()
+    start = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(now - 30 * 86400))
+    end = time.strftime("%Y-%m-%dT23:59:59Z", time.gmtime(now))
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/analytics/query",
+            headers={**HEADERS, "Content-Type": "application/json"},
+            json={
+                "metrics": ["total_usage", "request_count", "tokens_total"],
+                "dimensions": ["app"],
+                "order_by": {"field": "total_usage", "direction": "desc"},
+                "time_range": {"start": start, "end": end},
+                "limit": 20,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        rows = resp.json().get("data", {}).get("data", [])
+        result = []
+        for r in rows:
+            result.append({
+                "app": r.get("app") or "Unknown",
+                "usage": round(float(r.get("total_usage") or 0), 4),
+                "requests": int(r.get("request_count") or 0),
+                "tokens_total": int(r.get("tokens_total") or 0),
+            })
+        return result
+    except Exception:
+        return []
+
+
 def fetch_openrouter_summary():
     credits_resp = requests.get(
         "https://openrouter.ai/api/v1/credits", headers=HEADERS, timeout=15
@@ -207,6 +242,7 @@ def fetch_openrouter_summary():
         "month_usage": month_usage,
         "daily_series": daily_series,
         "model_ranking": model_ranking,
+        "app_ranking": fetch_app_usage(),
     }
 
 

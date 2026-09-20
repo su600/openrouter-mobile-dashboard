@@ -451,9 +451,15 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span>模型调用量排行 Top5 (近30天)</span></div>
-        <canvas id="modelChart" height="220"></canvas>
+        <div class="card-title"><span>App 消费分布 (近30天)</span></div>
+        <canvas id="appChart" height="220"></canvas>
+        <ul class="rank-list" id="app-rank-list" style="margin-top:8px;"></ul>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>模型调用量排行 Top5 (近30天)</span></div>
+      <canvas id="modelChart" height="220"></canvas>
     </div>
 
     <div class="card">
@@ -488,6 +494,8 @@ function saveTokenAndLoad() {
 
 let dailyChartInstance = null;
 let modelChartInstance = null;
+let appChartInstance = null;
+const APP_COLORS = ["#60a5fa", "#4ade80", "#fbbf24", "#f472b6", "#a78bfa", "#fb923c", "#34d399", "#f87171"];
 let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let exchangeRate = 7.1;
@@ -634,6 +642,48 @@ function render(data) {
       }
     }
   });
+
+  // App 消费分布饼图
+  const appData = data.app_ranking || [];
+  const appCtx = document.getElementById("appChart").getContext("2d");
+  if (appChartInstance) appChartInstance.destroy();
+  const appListEl = document.getElementById("app-rank-list");
+  if (appData.length === 0) {
+    appListEl.innerHTML = '<li class="empty">暂无数据</li>';
+  } else {
+    const appLabels = appData.map(a => a.app);
+    const appValues = appData.map(a => Math.round(a.usage * rate * 10000) / 10000);
+    appChartInstance = new Chart(appCtx, {
+      type: "doughnut",
+      data: {
+        labels: appLabels,
+        datasets: [{
+          data: appValues,
+          backgroundColor: APP_COLORS.slice(0, appData.length),
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom", labels: { color: "#c7cad6", font: { size: 11 }, boxWidth: 10, padding: 10 } }
+        }
+      }
+    });
+    const totalAppUsage = appValues.reduce((a, b) => a + b, 0) || 1;
+    appListEl.innerHTML = appData.map((a, i) => {
+      const val = Math.round(a.usage * rate * 10000) / 10000;
+      const pct = ((val / totalAppUsage) * 100).toFixed(1);
+      return `
+      <li class="rank-item">
+        <div class="rank-item-top">
+          <div class="rank-model"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${APP_COLORS[i % APP_COLORS.length]};margin-right:6px;"></span><span>${a.app}</span></div>
+          <div class="rank-usage">${fmt(a.usage, 2)}</div>
+        </div>
+        <div class="rank-requests">${a.requests} 次调用 · ${formatTokens(a.tokens_total)} tokens · ${pct}%</div>
+      </li>`;
+    }).join("");
+  }
 
   // 模型排行图（取前5个）
   const topModels = data.model_ranking.slice(0, 5);
