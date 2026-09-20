@@ -268,12 +268,19 @@
   .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+  }
+  .toggle-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
   }
   .rate-note {
-    font-size: 11px;
+    font-size: 10px;
     color: #6b7085;
-    margin-top: 4px;
+    white-space: nowrap;
+    min-height: 13px;
   }
 </style>
 </head>
@@ -290,10 +297,12 @@
    <div class="header-inner">
     <div class="header-top">
       <h1>💳 OpenRouter 账户看板</h1>
-      <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+      <div class="toggle-col">
+        <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+        <div class="rate-note" id="rate-note"></div>
+      </div>
     </div>
     <div class="sub" id="update-time">加载中...</div>
-    <div class="rate-note" id="rate-note"></div>
    </div>
   </header>
 
