@@ -38,7 +38,7 @@ CACHE_TTL = 60
 # 模型发布新闻满三方缓存（变化不频繁，缓存1小时）
 _models_cache = {"data": None, "ts": 0}
 _models_cache_lock = threading.Lock()
-MODELS_CACHE_TTL = 3600
+MODELS_CACHE_TTL = 3600 * 12  # 12小时缓存
 
 # 关注的主流厂商关键词匹配规则（与前端 getModelIcon 保持一致）
 VENDOR_RULES = [
