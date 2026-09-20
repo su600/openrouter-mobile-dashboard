@@ -352,6 +352,8 @@ class Handler(BaseHTTPRequestHandler):
                 ".png": "image/png",
                 ".svg": "image/svg+xml",
                 ".webp": "image/webp",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
                 ".json": "application/json",
             }.get(ext, "application/octet-stream")
             self._send_file(full_path, ctype)
