@@ -376,21 +376,41 @@
   }
   .refresh-btn:hover { background: var(--chip-border); }
   .refresh-btn:active { transform: scale(0.95); }
-  .theme-toggle-btn {
+  .header-toggle-group {
+    display: flex;
+    align-items: center;
     background: var(--chip-bg);
     border: 1px solid var(--chip-border);
-    color: var(--text-muted);
     border-radius: 20px;
-    padding: 6px 10px;
+    padding: 3px;
+    gap: 1px;
+  }
+  .header-toggle-group .toggle-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--chip-border);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+  .theme-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    border-radius: 16px;
+    width: 28px;
+    height: 26px;
+    padding: 0;
     font-size: 13px;
+    line-height: 1;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     transition: background 0.15s ease, transform 0.15s ease;
   }
   .theme-toggle-btn:hover { background: var(--chip-border); }
-  .theme-toggle-btn:active { transform: scale(0.9) rotate(15deg); }
+  .theme-toggle-btn:active { transform: scale(0.88) rotate(15deg); }
   .header-actions {
     display: flex;
     align-items: center;
@@ -467,24 +487,28 @@
   .login-box button:active { transform: scale(0.98); }
   }
   .currency-toggle {
-    background: var(--chip-bg);
-    border: 1px solid var(--chip-border);
-    color: var(--text);
-    border-radius: 20px;
-    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    border-radius: 16px;
+    height: 26px;
+    min-width: 42px;
+    padding: 0 10px;
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.3px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
   }
-  .currency-toggle:active { transform: scale(0.96); }
+  .currency-toggle:hover:not(.active) { background: var(--chip-border); color: var(--text); }
+  .currency-toggle:active { transform: scale(0.94); }
   .currency-toggle.active {
     background: var(--accent);
     color: var(--accent-contrast);
-    border-color: var(--accent);
   }
   .header-top {
     display: flex;
@@ -612,8 +636,11 @@
       <h1>💳 OpenRouter 账户看板</h1>
       <div class="toggle-col">
         <div class="header-toggles">
-          <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" title="切换主题">🌙</button>
-          <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()">USD</button>
+          <div class="header-toggle-group">
+            <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" title="切换主题">🌙</button>
+            <span class="toggle-divider"></span>
+            <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()" title="切换币种">USD</button>
+          </div>
         </div>
         <div class="rate-note" id="rate-note"></div>
       </div>
