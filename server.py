@@ -101,10 +101,17 @@ def get_latest_models_cached():
         return data
 
 
-def fetch_app_usage(start=None, end=None):
+def fetch_app_usage(start=None, end=None, granularity="hour"):
     """调用 OpenRouter 官方 Analytics API，按 App 维度查询消费分布。
     文档: POST /api/v1/analytics/query, dimensions=["app"]，普通推理 Key 即可调用，无需 Management Key。
     不传 start/end 时默认查询近30天（用于首页“App 消费分布”卡片）。
+
+    重要坑点：不传 granularity 参数时，OpenRouter 会把 time_range 的 start/end
+    向下取整到「当天(UTC) 00:00:00」再统计，即时分秒会被忽略——例如想查“北京时间今天0点
+    (=UTC前一天16:00)至今”，不传 granularity 时服务端会把 start 当成“UTC当天0点”，
+    多算了8小时(前一天16:00~24:00)的历史消费，导致弹窗金额明显高于“今日消费”实际值。
+    解决方式：显式传 granularity（hour/day），按返回的多个时间桶结果手动按 app 汇总求和，
+    这样服务端会精确按 start/end 的具体时分秒切分，不再整天取整。
     """
     now = time.time()
     if start is None:
@@ -118,23 +125,24 @@ def fetch_app_usage(start=None, end=None):
             json={
                 "metrics": ["total_usage", "request_count", "tokens_total"],
                 "dimensions": ["app"],
-                "order_by": {"field": "total_usage", "direction": "desc"},
+                "granularity": granularity,
                 "time_range": {"start": start, "end": end},
-                "limit": 20,
+                "limit": 2000,
             },
             timeout=15,
         )
         resp.raise_for_status()
         rows = resp.json().get("data", {}).get("data", [])
-        result = []
+        agg = {}
         for r in rows:
-            result.append({
-                "app": r.get("app") or "Unknown",
-                "usage": round(float(r.get("total_usage") or 0), 4),
-                "requests": int(r.get("request_count") or 0),
-                "tokens_total": int(r.get("tokens_total") or 0),
-            })
-        return result
+            app = r.get("app") or "Unknown"
+            item = agg.setdefault(app, {"app": app, "usage": 0.0, "requests": 0, "tokens_total": 0})
+            item["usage"] += float(r.get("total_usage") or 0)
+            item["requests"] += int(r.get("request_count") or 0)
+            item["tokens_total"] += int(r.get("tokens_total") or 0)
+        for item in agg.values():
+            item["usage"] = round(item["usage"], 4)
+        return sorted(agg.values(), key=lambda x: x["usage"], reverse=True)
     except Exception:
         return []
 
@@ -150,7 +158,7 @@ def fetch_app_usage_today():
     local_midnight_ts = time.mktime(local_midnight_struct)
     start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
     end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-    return fetch_app_usage(start=start, end=end)
+    return fetch_app_usage(start=start, end=end, granularity="hour")
 
 
 def fetch_app_usage_month():
@@ -162,7 +170,8 @@ def fetch_app_usage_month():
     local_midnight_ts = time.mktime(local_midnight_struct)
     start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
     end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-    return fetch_app_usage(start=start, end=end)
+    # 跨月周期可能较长，用小时粒度桶数会很多，改用天粒度即可保证精度（本月开始已是天边界，无截断问题）
+    return fetch_app_usage(start=start, end=end, granularity="day")
 
 
 def fetch_openrouter_summary():
