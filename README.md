@@ -2,11 +2,11 @@
 
 一个轻量级、支持 PWA 安装的移动端看板，用于监控 [OpenRouter](https://openrouter.ai) 账户的消费情况和各模型调用量。仅依赖 Python 标准库 + 一个第三方 HTTP 库，无需 Node.js / 数据库，几分钟即可部署到任意 Linux 服务器。
 
-![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model](https://img.shields.io/badge/Model-DeepSeek%20V4.1%20Flash-4D6BFE)
+![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model (initial)](https://img.shields.io/badge/Model(initial)-Claude%20Sonnet%205-d97757) ![Model (latest)](https://img.shields.io/badge/Model(latest)-DeepSeek%20V4.1%20Flash-4D6BFE)
 
-> 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)** 驱动 **`deepseek/deepseek-v4.1-flash`**（通过 [OpenRouter](https://openrouter.ai) 调用）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
+> 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)**（通过 [OpenRouter](https://openrouter.ai) 调用大模型）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
 >
-> 📌 **当前使用模型**：`deepseek/deepseek-v4.1-flash`（OpenRouter）——模型可随版本迭代更换，此处标注的是撰写/维护本仓库时实际调用的模型。
+> 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）功能迭代改用 **`deepseek/deepseek-v4.1-flash`** 完成。
 
 ## ✨ 功能特性
 
@@ -199,7 +199,8 @@ openrouter-dashboard/
 | 项目 | 信息 |
 |---|---|
 | Agent 框架 | [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)（CLI 编码智能体） |
-| 使用模型 | `deepseek/deepseek-v4.1-flash`（当前使用） |
+| 使用模型（项目初始） | `anthropic/claude-sonnet-5` |
+| 使用模型（最新迭代） | `deepseek/deepseek-v4.1-flash`（多账户管理功能） |
 | 模型提供方 | [OpenRouter](https://openrouter.ai) |
 | 开发方式 | 通过自然语言对话，逐步迭代完成需求分析、前后端开发、PWA 适配、Logo 爬取、服务器部署（systemd 自启）、GitHub 仓库创建与发布 |
 
