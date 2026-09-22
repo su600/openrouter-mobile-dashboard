@@ -2,9 +2,11 @@
 
 一个轻量级、支持 PWA 安装的移动端看板，用于监控 [OpenRouter](https://openrouter.ai) 账户的消费情况和各模型调用量。仅依赖 Python 标准库 + 一个第三方 HTTP 库，无需 Node.js / 数据库，几分钟即可部署到任意 Linux 服务器。
 
-![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model](https://img.shields.io/badge/Model-Claude%20Sonnet%205-d97757)
+![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model](https://img.shields.io/badge/Model-DeepSeek%20V4.1%20Flash-4D6BFE)
 
-> 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)** 驱动 **`anthropic/claude-sonnet-5`**（通过 [OpenRouter](https://openrouter.ai) 调用）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
+> 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)** 驱动 **`deepseek/deepseek-v4.1-flash`**（通过 [OpenRouter](https://openrouter.ai) 调用）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
+>
+> 📌 **当前使用模型**：`deepseek/deepseek-v4.1-flash`（OpenRouter）——模型可随版本迭代更换，此处标注的是撰写/维护本仓库时实际调用的模型。
 
 ## ✨ 功能特性
 
@@ -24,6 +26,7 @@
 - 🕛 **今日消费精准计算**：OpenRouter 官方 `/activity` 接口有 1~2 天数据延迟，本项目通过每日 0 点记录“累计消费总额(total_usage)”作为基准，实时计算 `今日消费 = 当前累计消费 - 0点基准`，因 total_usage 只增不减，不会因中途充值导致计算异常（早期版本曾使用“剩余余额”作为基准，存在充值当天会导致今日消费误计为 0 的 bug，已修复）
 - 📱 **PWA 支持**：可直接“添加到主屏幕”，像原生 App 一样使用
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
+- 🔑 **多账户 / 多 API Key 管理**：可在看板内添加多个 OpenRouter API Key，顶部下拉一键切换，分别查看不同账户的余额、消费、App 分布与模型排行；添加时自动调用官方接口校验 Key 有效性，支持重命名与删除；Key 仅保存在服务端 `accounts.json`，前端只能看到脱敏掩码（如 `sk-or-v1-b...d416`）
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
 
 ## 📸 界面预览
@@ -57,7 +60,10 @@ cp config.json.example config.json
 
 ```json
 {
-  "openrouter_api_key": "sk-or-v1-你的OpenRouter密钥",
+  "openrouter_api_keys": [
+    { "name": "主账户", "api_key": "sk-or-v1-你的第一个OpenRouter密钥" },
+    { "name": "备用账户", "api_key": "sk-or-v1-你的第二个OpenRouter密钥" }
+  ],
   "dashboard_token": "自定义一个访问口令，用于手机端登录看板",
   "port": 8080,
   "usd_to_cny_rate": 7.1
@@ -66,10 +72,13 @@ cp config.json.example config.json
 
 | 字段 | 说明 |
 |---|---|
-| `openrouter_api_key` | 你的 OpenRouter API Key，可在 [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) 获取 |
+| `openrouter_api_keys` | 可选，预置的多个账户列表，每项为 `{"name": 备注名, "api_key": 密钥}`；也可启动后在看板内直接添加 |
+| `openrouter_api_key` | 可选，兼容旧版的单 Key 字段；当未配置 `openrouter_api_keys` 时作为默认账户导入 |
 | `dashboard_token` | 手机端访问看板时输入的口令，请自行设置一个不易猜测的字符串 |
 | `port` | 服务监听端口 |
 | `usd_to_cny_rate` | USD → CNY 汇率，可自行调整（建议把手续费也计入这个数值里） |
+
+> 首次启动时会把 `config.json` 中的 Key 导入到 `accounts.json`（运行时账户存储，已加入 `.gitignore`）。之后在看板「⚙️ 管理」中添加/删除/重命名账户都会写入该文件，不会回写 `config.json`。
 
 ⚠️ **`config.json` 已加入 `.gitignore`，不会被提交，请务必不要把真实的 API Key 提交到任何公开仓库。**
 
@@ -83,7 +92,7 @@ python3 server.py
 
 ### 5. （推荐）配置每日余额基准定时任务
 
-OpenRouter 官方的 `/activity` 接口存在延迟，无法准确反映"今日消费"。本项目通过 `baseline_capture.py` 脚本在每天 0 点记录一次余额基准，再用「基准余额 - 当前余额」实时推算当日消费。请配置 cron 让其每天自动运行一次：
+OpenRouter 官方的 `/activity` 接口存在延迟，无法准确反映"今日消费"。本项目通过 `baseline_capture.py` 脚本在每天 0 点记录一次基准，再用「基准 - 当前累计消费」实时推算当日消费。脚本会自动遍历 `accounts.json` 中的所有账户，逐个记录基准。请配置 cron 让其每天自动运行一次：
 
 ```bash
 crontab -e
@@ -136,8 +145,9 @@ sudo systemctl enable --now or-dashboard.service
 ```
 openrouter-dashboard/
 ├── server.py              # 后端服务（Python 标准库 http.server，无框架依赖）
-├── baseline_capture.py    # 每日 0 点余额基准捕获脚本（配合 cron 使用，用于精确计算今日消费）
+├── baseline_capture.py    # 每日 0 点余额基准捕获脚本（遍历所有账户，配合 cron 使用）
 ├── config.json.example    # 配置文件示例（真实配置请自行创建 config.json，不会被提交）
+├── accounts.json          # 运行时多账户存储（自动生成，含明文 Key，不会被提交）
 ├── .gitignore
 ├── README.md
 └── static/
@@ -162,10 +172,14 @@ openrouter-dashboard/
 
 ## 🔧 工作原理
 
-1. 后端 `server.py` 启动一个纯 Python HTTP 服务，暴露四个核心接口：
+1. 后端 `server.py` 启动一个纯 Python HTTP 服务，暴露以下接口：
    - `GET /` ：返回前端页面
-   - `GET /api/summary?token=xxx` ：聚合 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON，供前端渲染（60 秒缓存）
-   - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存）
+   - `GET /api/accounts?token=xxx` ：返回账户列表（含脱敏后的 Key 掩码），供前端下拉切换
+   - `POST /api/accounts?token=xxx` ：新增账户（body: `{"name", "api_key"}`），会先调用 OpenRouter `/key` 校验 Key 有效性
+   - `POST /api/accounts/rename?token=xxx` ：重命名账户（body: `{"id", "name"}`）
+   - `DELETE /api/accounts?id=xxx&token=xxx` ：删除账户（至少保留一个）
+   - `GET /api/summary?token=xxx&account=xxx` ：聚合指定账户的 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON（按账户分别缓存 60 秒）
+   - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
    - App 消费分布数据通过 `POST https://openrouter.ai/api/v1/analytics/query`（`dimensions: ["app"]`）获取，普通推理 API Key 即可调用，无需 Management Key
 2. 服务端持有真实的 OpenRouter API Key，通过环境隔离保证密钥不会暴露给浏览器/前端
 3. 前端仅需要一个自定义的访问口令（`dashboard_token`），存储在浏览器 `localStorage`，避免每次重新输入
@@ -174,7 +188,7 @@ openrouter-dashboard/
 
 ## ⚠️ 安全提示
 
-- 请勿将填好真实 Key 的 `config.json` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
+- 请勿将填好真实 Key 的 `config.json` 或运行时生成的 `accounts.json` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
 - 建议将 `dashboard_token` 设置为足够随机、不易猜测的字符串
 - 如果部署在公网服务器，建议额外配置 HTTPS（可用 Nginx/Caddy 反向代理）以及防火墙限制访问来源
 
@@ -185,7 +199,7 @@ openrouter-dashboard/
 | 项目 | 信息 |
 |---|---|
 | Agent 框架 | [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)（CLI 编码智能体） |
-| 使用模型 | `anthropic/claude-sonnet-5` |
+| 使用模型 | `deepseek/deepseek-v4.1-flash`（当前使用） |
 | 模型提供方 | [OpenRouter](https://openrouter.ai) |
 | 开发方式 | 通过自然语言对话，逐步迭代完成需求分析、前后端开发、PWA 适配、Logo 爬取、服务器部署（systemd 自启）、GitHub 仓库创建与发布 |
 

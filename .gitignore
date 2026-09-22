@@ -1,6 +1,14 @@
+# 真实配置与运行时数据，请勿提交
 config.json
+accounts.json
+daily_baseline.json
+
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+
+# 日志
 *.log
-daily_baseline.json
+
+# 系统
+.DS_Store

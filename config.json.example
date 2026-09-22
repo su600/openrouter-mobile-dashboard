@@ -1,6 +1,10 @@
 {
-  "openrouter_api_key": "sk-or-v1-your-openrouter-api-key-here",
-  "dashboard_token": "your-dashboard-access-token",
+  "openrouter_api_keys": [
+    { "name": "主账户", "api_key": "sk-or-v1-你的第一个OpenRouter密钥" },
+    { "name": "备用账户", "api_key": "sk-or-v1-你的第二个OpenRouter密钥" }
+  ],
+  "openrouter_api_key": "sk-or-v1-兼容旧版的单Key配置（可选，留空则忽略）",
+  "dashboard_token": "自定义一个访问口令，用于手机端登录看板",
   "port": 8080,
   "usd_to_cny_rate": 7.1
 }

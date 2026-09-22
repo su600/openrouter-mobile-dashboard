@@ -525,6 +525,146 @@
   }
   .rate-note.show { visibility: visible; }
 
+  /* ===== 账户（API Key）切换与管理 ===== */
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .account-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .account-row select {
+    flex: 1;
+    min-width: 0;
+    max-width: 320px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .account-row select:focus { outline: none; border-color: var(--accent); }
+  .account-manage-btn {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .account-manage-btn:hover { background: var(--chip-bg); color: var(--text); }
+  .account-manage-btn:active { transform: scale(0.96); }
+
+  .account-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .account-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+  }
+  .account-list-item.current { border-color: var(--accent); }
+  .account-list-info { min-width: 0; }
+  .account-list-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-strong);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .account-list-key {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .account-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 0 6px;
+    line-height: 15px;
+    flex-shrink: 0;
+  }
+  .account-list-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .account-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+  .account-icon-btn:hover { background: var(--chip-bg); }
+  .account-icon-btn.danger:hover { background: rgba(239,68,68,0.15); }
+
+  .account-add-form {
+    border-top: 1px dashed var(--card-border);
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .account-add-form .form-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .account-add-form input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .account-add-form input:focus { outline: none; border-color: var(--accent); }
+  .account-submit-btn {
+    padding: 11px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .account-submit-btn:active { transform: scale(0.98); }
+  .account-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .account-form-msg { font-size: 12px; color: var(--text-muted); min-height: 16px; }
+  .account-form-msg.error { color: var(--danger); }
+  .account-form-msg.success { color: var(--accent); }
+
   /* 新模型发布新闻满满终 */
   .news-ticker {
     background: var(--card-bg);
@@ -633,6 +773,11 @@
         <div class="rate-note" id="rate-note"></div>
       </div>
     </div>
+    <div class="account-row">
+      <label class="account-label">账户</label>
+      <select id="account-select" onchange="switchAccount()"></select>
+      <button class="account-manage-btn" onclick="openAccountsModal()" title="管理 API Key">⚙️ 管理</button>
+    </div>
     <div class="sub" id="update-time">加载中...</div>
    </div>
   </header>
@@ -708,7 +853,7 @@
 
   <div class="footer">
     <div>由 <b>Pi Coding Agent</b> 构建维护</div>
-    <div id="footer-model">模型: anthropic/claude-sonnet-5 (openrouter)</div>
+    <div id="footer-model">模型: deepseek/deepseek-v4.1-flash (openrouter)</div>
     <div><a href="https://github.com/su600/openrouter-mobile-dashboard" target="_blank" style="color:var(--text-faint);">GitHub 开源仓库 →</a></div>
   </div>
 </div>
@@ -723,6 +868,25 @@
       <ul class="rank-list" id="app-usage-modal-list">
         <li class="empty">加载中...</li>
       </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="accounts-modal" onclick="if(event.target===this) closeAccountsModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>🔑 API Key 账户管理</span>
+      <button class="modal-close" onclick="closeAccountsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <ul class="account-list" id="account-list"></ul>
+      <div class="account-add-form">
+        <div class="form-title">➕ 添加账户</div>
+        <input id="new-account-name" type="text" placeholder="备注名（可选，如：主账户）" />
+        <input id="new-account-key" type="password" placeholder="OpenRouter API Key (sk-or-...)" autocomplete="off" />
+        <button class="account-submit-btn" id="account-submit-btn" onclick="addAccount()">添加并验证</button>
+        <div class="account-form-msg" id="account-form-msg"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -746,6 +910,14 @@ let modelChartInstance = null;
 let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let exchangeRate = 7.1;
+
+// 多账户（API Key）状态
+let accounts = [];
+let currentAccountId = localStorage.getItem("or_dashboard_account") || null;
+
+function getAccountParam() {
+  return currentAccountId ? `&account=${encodeURIComponent(currentAccountId)}` : "";
+}
 
 // 预警阈值（均以 USD 原始金额判断，与展示币种无关）
 const REMAINING_DANGER_THRESHOLD = 9;   // 余额小于 $9 标红
@@ -792,7 +964,7 @@ async function loadData() {
   const token = getToken();
   if (!token) { showLogin(); return; }
   try {
-    const resp = await fetch(`/api/summary?token=${encodeURIComponent(token)}`);
+    const resp = await fetch(`/api/summary?token=${encodeURIComponent(token)}${getAccountParam()}`);
     if (resp.status === 401) {
       localStorage.removeItem(TOKEN_KEY);
       showLogin();
@@ -827,7 +999,7 @@ async function openAppUsageModal(range) {
   const token = getToken();
   const url = range === "today" ? "/api/app_usage_today" : "/api/app_usage_month";
   try {
-    const resp = await fetch(`${url}?token=${encodeURIComponent(token)}`);
+    const resp = await fetch(`${url}?token=${encodeURIComponent(token)}${getAccountParam()}`);
     const data = await resp.json();
     if (data.error) {
       listEl.innerHTML = `<li class="error">加载失败: ${data.error}</li>`;
@@ -861,7 +1033,10 @@ function closeAppUsageModal() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeAppUsageModal();
+  if (e.key === "Escape") {
+    closeAppUsageModal();
+    closeAccountsModal();
+  }
 });
 
 let newsLoaded = false;
@@ -934,7 +1109,8 @@ function render(data) {
   btn.classList.toggle("active", currentCurrency === "CNY");
 
   const t = new Date(data.generated_at * 1000);
-  document.getElementById("update-time").innerText = "更新时间: " + t.toLocaleString("zh-CN");
+  const acctLabel = data.account_name ? `账户: ${data.account_name} · ` : "";
+  document.getElementById("update-time").innerText = acctLabel + "更新时间: " + t.toLocaleString("zh-CN");
 
   // 每日趋势图
   const rate = currentCurrency === "CNY" ? exchangeRate : 1;
@@ -1108,6 +1284,165 @@ function formatTokens(n) {
   return String(n);
 }
 
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// ===== 多账户（API Key）管理 =====
+async function loadAccounts() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const resp = await fetch(`/api/accounts?token=${encodeURIComponent(token)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    accounts = data.accounts || [];
+    if (!accounts.length) return;
+    const valid = accounts.some(a => a.id === currentAccountId);
+    if (!valid) {
+      const active = data.active && accounts.some(a => a.id === data.active) ? data.active : accounts[0].id;
+      currentAccountId = active;
+      localStorage.setItem("or_dashboard_account", currentAccountId);
+    }
+    renderAccountSelect();
+  } catch (e) {
+    // 静默失败，不影响主看板
+  }
+}
+
+function renderAccountSelect() {
+  const sel = document.getElementById("account-select");
+  if (!sel) return;
+  sel.innerHTML = accounts.map(a =>
+    `<option value="${a.id}" ${a.id === currentAccountId ? "selected" : ""}>${escapeHtml(a.name)}</option>`
+  ).join("");
+}
+
+function switchAccount() {
+  const sel = document.getElementById("account-select");
+  if (!sel) return;
+  currentAccountId = sel.value;
+  localStorage.setItem("or_dashboard_account", currentAccountId);
+  loadData();
+}
+
+function openAccountsModal() {
+  document.getElementById("accounts-modal").classList.add("show");
+  renderAccountManageList();
+}
+
+function closeAccountsModal() {
+  document.getElementById("accounts-modal").classList.remove("show");
+}
+
+function renderAccountManageList() {
+  const el = document.getElementById("account-list");
+  if (!el) return;
+  if (!accounts.length) {
+    el.innerHTML = '<li class="empty">暂无账户</li>';
+    return;
+  }
+  el.innerHTML = accounts.map(a => `
+    <li class="account-list-item ${a.id === currentAccountId ? "current" : ""}">
+      <div class="account-list-info">
+        <div class="account-list-name">${escapeHtml(a.name)} ${a.id === currentAccountId ? '<span class="account-badge">当前</span>' : ""}</div>
+        <div class="account-list-key">${escapeHtml(a.key_masked)}</div>
+      </div>
+      <div class="account-list-actions">
+        <button class="account-icon-btn" onclick="renameAccount('${a.id}')" title="重命名">✏️</button>
+        <button class="account-icon-btn danger" onclick="deleteAccount('${a.id}')" title="删除">🗑️</button>
+      </div>
+    </li>`).join("");
+}
+
+async function addAccount() {
+  const nameEl = document.getElementById("new-account-name");
+  const keyEl = document.getElementById("new-account-key");
+  const msgEl = document.getElementById("account-form-msg");
+  const btn = document.getElementById("account-submit-btn");
+  const api_key = keyEl.value.trim();
+  if (!api_key) {
+    msgEl.textContent = "请填写 API Key";
+    msgEl.className = "account-form-msg error";
+    return;
+  }
+  msgEl.textContent = "验证中...";
+  msgEl.className = "account-form-msg";
+  btn.disabled = true;
+  try {
+    const resp = await fetch(`/api/accounts?token=${encodeURIComponent(getToken())}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nameEl.value.trim(), api_key }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      msgEl.textContent = data.error || "添加失败";
+      msgEl.className = "account-form-msg error";
+      return;
+    }
+    msgEl.textContent = "添加成功";
+    msgEl.className = "account-form-msg success";
+    nameEl.value = "";
+    keyEl.value = "";
+    await loadAccounts();
+    currentAccountId = data.account.id;
+    localStorage.setItem("or_dashboard_account", currentAccountId);
+    renderAccountSelect();
+    closeAccountsModal();
+    loadData();
+  } catch (e) {
+    msgEl.textContent = "网络错误: " + e.message;
+    msgEl.className = "account-form-msg error";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function renameAccount(id) {
+  const acct = accounts.find(a => a.id === id);
+  const name = prompt("修改备注名", acct ? acct.name : "");
+  if (!name || !name.trim()) return;
+  try {
+    const resp = await fetch(`/api/accounts/rename?token=${encodeURIComponent(getToken())}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name: name.trim() }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) { alert(data.error || "重命名失败"); return; }
+    await loadAccounts();
+    renderAccountManageList();
+    if (id === currentAccountId) loadData();
+  } catch (e) {
+    alert("网络错误: " + e.message);
+  }
+}
+
+async function deleteAccount(id) {
+  const acct = accounts.find(a => a.id === id);
+  if (!confirm(`确定删除账户「${acct ? acct.name : id}」吗？该操作不影响 OpenRouter 上的 Key 本身。`)) return;
+  try {
+    const resp = await fetch(`/api/accounts?id=${encodeURIComponent(id)}&token=${encodeURIComponent(getToken())}`, {
+      method: "DELETE",
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) { alert(data.error || "删除失败"); return; }
+    accounts = data.accounts || [];
+    if (!accounts.some(a => a.id === currentAccountId)) {
+      currentAccountId = data.active || (accounts[0] && accounts[0].id) || null;
+      if (currentAccountId) localStorage.setItem("or_dashboard_account", currentAccountId);
+    }
+    renderAccountSelect();
+    renderAccountManageList();
+    loadData();
+  } catch (e) {
+    alert("网络错误: " + e.message);
+  }
+}
+
 function showLogin() {
   document.getElementById("login-view").style.display = "block";
   document.getElementById("dashboard-view").style.display = "none";
@@ -1118,12 +1453,13 @@ function showDashboard() {
   document.getElementById("dashboard-view").style.display = "block";
 }
 
-function init() {
+async function init() {
   const token = getToken();
   if (!token) {
     showLogin();
   } else {
     showDashboard();
+    await loadAccounts();
     loadData();
     loadNewsTicker();
     setInterval(loadData, 60000); // 每60秒自动刷新
