@@ -12,6 +12,7 @@ import json
 import time
 import hashlib
 import threading
+import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -377,11 +378,26 @@ def fetch_openrouter_summary(account):
         today_usage = max(computed, activity_today_usage, 0.0)
         today_usage_source = "baseline" if computed >= activity_today_usage else "activity"
 
-    # 本月累计消费（按当前自然月聚合 daily_totals）
-    month_prefix = time.strftime("%Y-%m")
-    month_usage = round(
-        sum(v for d, v in daily_totals.items() if d.startswith(month_prefix)), 4
-    )
+    # 本月累计消费
+    # 说明：/activity 接口有 1~2 天延迟，当天（甚至昨天）数据常常尚未生成，
+    # 若只聚合 daily_totals，会导致“本月累计”滞后，甚至出现“本月累计 < 今日消费”的倒挂。
+    # 做法：优先用每日 0 点基准的历史逐日精确重建，activity 兜底，
+    # 今日用实时基准推算值覆盖，最后再兜底保证 本月累计 ≥ 今日消费。
+    month_prefix = today[:7]
+    month_day_usage = {}
+    # 1) activity 里本月已生成的天
+    for d, v in daily_totals.items():
+        if d.startswith(month_prefix):
+            month_day_usage[d] = v
+    # 2) 用 0 点基准历史精确覆盖：相邻两天基准之差 = 前一日消费
+    for d, v in _history_daily_usage(account["id"]).items():
+        if d.startswith(month_prefix):
+            month_day_usage[d] = v
+    # 3) 今日用实时值覆盖（activity 通常为 0，避免少算今天）
+    month_day_usage[today] = max(today_usage, month_day_usage.get(today, 0.0))
+    month_usage = round(sum(month_day_usage.values()), 4)
+    # 4) 兜底：本月累计不可能小于今日消费
+    month_usage = max(month_usage, round(today_usage, 4))
 
     return {
         "generated_at": int(time.time()),
@@ -454,15 +470,67 @@ def save_daily_baseline(account_id, date_str, total_usage_at_midnight):
                 if accounts:
                     migrated["accounts"][accounts[0]["id"]] = dict(raw)
             raw = migrated
+        # 维护每日 0 点基准的滚动历史（近 70 天），供“本月/昨日”等在 activity 延迟时精确重建
+        entry = raw["accounts"].get(account_id) or {}
+        hist = entry.get("history")
+        if not isinstance(hist, list):
+            hist = []
+        hist = [h for h in hist if isinstance(h, dict) and h.get("date")]
+        old_date = entry.get("date")
+        old_total = entry.get("total_usage_at_midnight")
+        if old_date and old_total is not None and old_date != date_str:
+            # 把即将被覆盖的旧基准并入历史（仅不同日期才并入）
+            if not any(h["date"] == old_date for h in hist):
+                hist.append({"date": old_date, "total_usage": old_total})
+        hist = [h for h in hist if h["date"] != date_str]
+        hist.append({"date": date_str, "total_usage": total_usage_at_midnight})
+        hist.sort(key=lambda h: h["date"])
         raw["accounts"][account_id] = {
             "date": date_str,
             "total_usage_at_midnight": total_usage_at_midnight,
             "captured_at": int(time.time()),
+            "history": hist[-70:],
         }
         tmp = BASELINE_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(raw, f, ensure_ascii=False, indent=2)
         os.replace(tmp, BASELINE_PATH)
+
+
+def _next_local_date(date_str):
+    """返回本地日期字符串的次日（用于判断基准历史是否连续）。"""
+    try:
+        d = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        return (d + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
+def _history_daily_usage(account_id):
+    """由每日 0 点基准历史推算逐日消费：相邻两连续自然日的基准之差 = 前一日消费。
+    仅当两天为连续自然日时才计算，避免中间漏采导致跨多日消费被错误归到某一天。
+    """
+    entry = load_daily_baseline(account_id) or {}
+    hist = entry.get("history") or []
+    parsed = []
+    for h in hist:
+        if not isinstance(h, dict):
+            continue
+        d = h.get("date")
+        try:
+            t = float(h.get("total_usage") or 0)
+        except (TypeError, ValueError):
+            continue
+        if d:
+            parsed.append((d, t))
+    parsed.sort(key=lambda x: x[0])
+    out = {}
+    for i in range(len(parsed) - 1):
+        d1, t1 = parsed[i]
+        d2, t2 = parsed[i + 1]
+        if _next_local_date(d1) == d2:
+            out[d1] = max(round(t2 - t1, 4), 0.0)
+    return out
 
 
 # ===== 汇总缓存（按账户区分，60秒）=====
