@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 每日 0 点余额基准捕获脚本（支持多账户）
-- 由 cron 在每天 00:01 (本地时区) 触发
+- 由 cron 在每天 UTC 00:01（= 北京时间 08:01）触发
 - 遍历 accounts.json 中的所有 API Key，分别拉取 OpenRouter /credits 接口，
   记录当天 0 点的累计消费总额(total_usage)作为该账户的基准
-- 供 server.py 计算"今日消费" = 当前累计消费总额 - 今日0点基准
-- 注意：记录 total_usage（只增不减）而非 remaining(剩余额度)，充值不会干扰计算结果
+- 供 server.py 计算"今日消费" = 当前累计消费总额 - 今日0点基准（仅作兜底）
+- 注意：日界采用 UTC，与 OpenRouter 官方口径一致；记录 total_usage（只增不减）而非 remaining，充值不会干扰计算
 """
 import time
 import requests
@@ -21,7 +21,7 @@ def capture_one(account):
     data = r.json().get("data", {}) or {}
     total_usage = data.get("total_usage", 0) or 0
 
-    today = time.strftime("%Y-%m-%d")
+    today = time.strftime("%Y-%m-%d", time.gmtime())
     server.save_daily_baseline(account["id"], today, total_usage)
     print(
         f"[{today}] {account.get('name') or account['id']}: "

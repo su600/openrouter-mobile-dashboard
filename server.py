@@ -261,30 +261,49 @@ def fetch_app_usage(api_key, start=None, end=None, granularity="hour"):
         return []
 
 
+def fetch_analytics_usage(api_key, start, end, granularity):
+    """返回 [start, end] 区间内的总消费金额；接口失败返回 None（区别于真实的 0）。
+    用于「今日/本月」取数：Analytics API 实时性好，且天然以 UTC 自然日为界，
+    与 OpenRouter 官方口径一致（对应北京时间每天 08:00 重置）。
+    """
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/analytics/query",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "metrics": ["total_usage"],
+                "dimensions": ["app"],
+                "granularity": granularity,
+                "time_range": {"start": start, "end": end},
+                "limit": 2000,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        rows = resp.json().get("data", {}).get("data", [])
+        return round(sum(float(r.get("total_usage") or 0) for r in rows), 4)
+    except Exception:
+        return None
+
+
 def fetch_app_usage_today(api_key):
-    """今日（本地 0 点至现在）各 App 消费分布，用于点击“今日消费”弹窗。
-    注意：Analytics API 的 time_range 使用 UTC，这里按本地时区(Asia/Shanghai, UTC+8)推算当天 0 点对应的 UTC 时间。
+    """今日（UTC 自然日 0 点至现在）各 App 消费分布，用于点击“今日消费”弹窗。
+    日界采用 UTC 以与 OpenRouter 官方一致（北京时间每天 08:00 重置）。
     """
     now = time.time()
-    local_now = time.localtime(now)
-    local_date_str = time.strftime("%Y-%m-%d", local_now)
-    local_midnight_struct = time.strptime(local_date_str + " 00:00:00", "%Y-%m-%d %H:%M:%S")
-    local_midnight_ts = time.mktime(local_midnight_struct)
-    start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
+    utc_date_str = time.strftime("%Y-%m-%d", time.gmtime(now))
+    start = utc_date_str + "T00:00:00Z"
     end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
     return fetch_app_usage(api_key, start=start, end=end, granularity="hour")
 
 
 def fetch_app_usage_month(api_key):
-    """本自然月（本地 1 号 0 点至现在）各 App 消费分布，用于点击“本月累计消费”弹窗。"""
+    """本自然月（UTC 1 号 0 点至现在）各 App 消费分布，用于点击“本月累计消费”弹窗。"""
     now = time.time()
-    local_now = time.localtime(now)
-    month_first_str = time.strftime("%Y-%m-01", local_now)
-    local_midnight_struct = time.strptime(month_first_str + " 00:00:00", "%Y-%m-%d %H:%M:%S")
-    local_midnight_ts = time.mktime(local_midnight_struct)
-    start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(local_midnight_ts))
+    utc_month = time.strftime("%Y-%m", time.gmtime(now))
+    start = utc_month + "-01T00:00:00Z"
     end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-    # 跨月周期可能较长，用小时粒度桶数会很多，改用天粒度即可保证精度（本月开始已是天边界，无截断问题）
+    # 跨月周期可能较长，用天粒度即可保证精度（月起为天边界，无截断问题）
     return fetch_app_usage(api_key, start=start, end=end, granularity="day")
 
 
@@ -350,54 +369,51 @@ def fetch_openrouter_summary(account):
     for m in model_ranking:
         m["usage"] = round(m["usage"], 4)
 
-    # 今日消费
-    # OpenRouter 的 /activity 接口有 1~2 天延迟，当天数据往往还未生成，直接取 daily_totals 会长期为 0。
-    # 优先使用自己记录的“当日 0 点基准额度”推算：今日消费 = 基准额度 - 当前剩余额度
-    today = time.strftime("%Y-%m-%d")
-    activity_today_usage = round(daily_totals.get(today, 0.0), 4)
-    today_usage = activity_today_usage
-    today_usage_source = "activity"
+    # 今日 / 本月消费
+    # 日界口径：与 OpenRouter 官方保持一致——以 UTC 自然日为界（对应北京时间每天 08:00 重置）。
+    # 取数优先用 Analytics API（实时性远好于 /activity），避免用 total_usage 差值：
+    # total_usage 结算有延迟，会在跨日瞬间把前一天的消费错记到当天，出现“今日消费不清零”的假象。
+    now_ts = time.time()
+    utc_today = time.strftime("%Y-%m-%d", time.gmtime(now_ts))
+    utc_month = utc_today[:7]
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts))
+    today = utc_today  # 供下方兜底逻辑使用
 
-    baseline = load_daily_baseline(account["id"])
-    if not baseline or baseline.get("date") != today:
-        # 当天基准不存在（例如 cron 未及时执行或服务首次启动），自动补写一个基准，以当前累计消费总额作为今日起点
-        save_daily_baseline(account["id"], today, total_usage)
-        baseline = {"date": today, "total_usage_at_midnight": total_usage}
+    analytics_today = fetch_analytics_usage(api_key, utc_today + "T00:00:00Z", now_iso, "hour")
+    analytics_month = fetch_analytics_usage(api_key, utc_month + "-01T00:00:00Z", now_iso, "day")
+    activity_today_usage = round(daily_totals.get(utc_today, 0.0), 4)
 
-    if baseline and baseline.get("date") == today:
-        # 优先使用 total_usage_at_midnight（累计消费总额基准，只增不减，不受充值干扰）
-        # 兼容旧版 baseline 文件（字段为 remaining_at_midnight，基于余额，会被充值干扰）
+    if analytics_today is not None:
+        today_usage = analytics_today
+        today_usage_source = "analytics"
+    else:
+        # 兜底：每日 0 点基准差值（天界同为 UTC）
+        baseline = load_daily_baseline(account["id"])
+        if not baseline or baseline.get("date") != utc_today:
+            save_daily_baseline(account["id"], utc_today, total_usage)
+            baseline = {"date": utc_today, "total_usage_at_midnight": total_usage}
         if "total_usage_at_midnight" in baseline:
-            baseline_total_usage = baseline["total_usage_at_midnight"]
-            computed = round(total_usage - baseline_total_usage, 4)
+            computed = round(total_usage - baseline["total_usage_at_midnight"], 4)
         else:
             remaining_now = total_credits - total_usage
-            baseline_remaining = baseline.get("remaining_at_midnight", remaining_now)
-            computed = round(baseline_remaining - remaining_now, 4)
-        # 取两者中较大的作为今日消费（避免 activity 滞迟导致低估），且不低于0
+            computed = round(baseline.get("remaining_at_midnight", remaining_now) - remaining_now, 4)
         today_usage = max(computed, activity_today_usage, 0.0)
-        today_usage_source = "baseline" if computed >= activity_today_usage else "activity"
+        today_usage_source = "baseline"
 
-    # 本月累计消费
-    # 说明：/activity 接口有 1~2 天延迟，当天（甚至昨天）数据常常尚未生成，
-    # 若只聚合 daily_totals，会导致“本月累计”滞后，甚至出现“本月累计 < 今日消费”的倒挂。
-    # 做法：优先用每日 0 点基准的历史逐日精确重建，activity 兜底，
-    # 今日用实时基准推算值覆盖，最后再兜底保证 本月累计 ≥ 今日消费。
-    month_prefix = today[:7]
-    month_day_usage = {}
-    # 1) activity 里本月已生成的天
-    for d, v in daily_totals.items():
-        if d.startswith(month_prefix):
-            month_day_usage[d] = v
-    # 2) 用 0 点基准历史精确覆盖：相邻两天基准之差 = 前一日消费
-    for d, v in _history_daily_usage(account["id"]).items():
-        if d.startswith(month_prefix):
-            month_day_usage[d] = v
-    # 3) 今日用实时值覆盖（activity 通常为 0，避免少算今天）
-    month_day_usage[today] = max(today_usage, month_day_usage.get(today, 0.0))
-    month_usage = round(sum(month_day_usage.values()), 4)
-    # 4) 兜底：本月累计不可能小于今日消费
-    month_usage = max(month_usage, round(today_usage, 4))
+    # 本月累计消费：优先 Analytics（UTC 月界）；失败时兜底用 activity + 基准历史重建
+    if analytics_month is not None:
+        month_usage = max(round(analytics_month, 4), round(today_usage, 4))
+    else:
+        month_prefix = utc_month
+        month_day_usage = {}
+        for d, v in daily_totals.items():
+            if d.startswith(month_prefix):
+                month_day_usage[d] = v
+        for d, v in _history_daily_usage(account["id"]).items():
+            if d.startswith(month_prefix):
+                month_day_usage[d] = v
+        month_day_usage[utc_today] = max(today_usage, month_day_usage.get(utc_today, 0.0))
+        month_usage = max(round(sum(month_day_usage.values()), 4), round(today_usage, 4))
 
     return {
         "generated_at": int(time.time()),

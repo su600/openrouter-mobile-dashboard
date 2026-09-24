@@ -808,7 +808,7 @@
         </div>
         <div class="stat-item clickable" id="today-usage-item" onclick="openAppUsageModal('today')">
           <div class="val" id="today-usage">--</div>
-          <div class="label" id="today-usage-label">今日消费 (USD) <span class="click-hint">⊘</span></div>
+          <div class="label" id="today-usage-label">今日消费 · UTC (USD) <span class="click-hint">⊘</span></div>
         </div>
       </div>
     </div>
@@ -1098,7 +1098,7 @@ function render(data) {
     todayUsageItem.classList.remove("warn");
     document.getElementById("today-usage").innerText = fmt(data.today_usage, 4);
   }
-  document.getElementById("today-usage-label").innerText = `今日消费 (${unitLabel})${sourceNote}`;
+  document.getElementById("today-usage-label").innerText = `今日消费 · UTC (${unitLabel})${sourceNote}`;
 
   const rateNoteEl = document.getElementById("rate-note");
   rateNoteEl.innerText = `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`;
