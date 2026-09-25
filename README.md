@@ -1,12 +1,12 @@
-# OpenRouter 手机看板 (OpenRouter Mobile Dashboard)
+# OpenRouter 账户看板 (OpenRouter Mobile Dashboard)
 
 一个轻量级、支持 PWA 安装的移动端看板，用于监控 [OpenRouter](https://openrouter.ai) 账户的消费情况和各模型调用量。仅依赖 Python 标准库 + 一个第三方 HTTP 库，无需 Node.js / 数据库，几分钟即可部署到任意 Linux 服务器。
 
-![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model (initial)](https://img.shields.io/badge/Model(initial)-Claude%20Sonnet%205-d97757) ![Model (latest)](https://img.shields.io/badge/Model(latest)-DeepSeek%20V4.1%20Flash-4D6BFE)
+![Dashboard Preview](https://img.shields.io/badge/PWA-Installable-4ade80) ![Python](https://img.shields.io/badge/Python-3.7+-blue) ![License](https://img.shields.io/badge/License-MIT-lightgrey) ![Built with](https://img.shields.io/badge/Built%20with-Pi%20Coding%20Agent-8b5cf6) ![Model (initial)](https://img.shields.io/badge/Model(initial)-Claude%20Sonnet%205-d97757) ![Model (feature iterations)](https://img.shields.io/badge/Model(features)-DeepSeek%20V4.1%20Flash-4D6BFE) ![Model (this README update)](https://img.shields.io/badge/Model(README)-GPT--6%20Luna-412991)
 
 > 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)**（通过 [OpenRouter](https://openrouter.ai) 调用大模型）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
 >
-> 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）与「旗舰模型价格对比」卡片等迭代改用 **`deepseek/deepseek-v4.1-flash`** 完成。
+> 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）与「旗舰模型价格对比」卡片等功能迭代由 **`deepseek/deepseek-v4.1-flash`** 完成；本次（2026-09-25）GitHub 提交记录核对与 README 更新使用 **`openai/gpt-6-luna`**。
 
 ## ✨ 功能特性
 
@@ -45,8 +45,8 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/<your-username>/openrouter-dashboard.git
-cd openrouter-dashboard
+git clone https://github.com/su600/openrouter-mobile-dashboard.git
+cd openrouter-mobile-dashboard
 ```
 
 ### 2. 安装依赖
@@ -81,8 +81,8 @@ cp config.json.example config.json
 |---|---|
 | `openrouter_api_keys` | 可选，预置的多个账户列表，每项为 `{"name": 备注名, "api_key": 密钥}`；也可启动后在看板内直接添加 |
 | `openrouter_api_key` | 可选，兼容旧版的单 Key 字段；当未配置 `openrouter_api_keys` 时作为默认账户导入 |
-| `dashboard_token` | 手机端访问看板时输入的口令，请自行设置一个不易猜测的字符串 |
-| `port` | 服务监听端口 |
+| `dashboard_token` | 手机端访问看板时输入的口令，请自行设置一个不易猜测的字符串；也可通过环境变量 `OR_DASHBOARD_TOKEN` 设置。未配置时仅回退到开发用默认值 `changeme`，公网部署前务必设置强口令 |
+| `port` | 服务监听端口；示例配置为 `8080`，未配置时默认 `8899` |
 | `usd_to_cny_rate` | USD → CNY 汇率，可自行调整（建议把手续费也计入这个数值里） |
 
 > 首次启动时会把 `config.json` 中的 Key 导入到 `accounts.json`（运行时账户存储，已加入 `.gitignore`）。之后在看板「⚙️ 管理」中添加/删除/重命名账户都会写入该文件，不会回写 `config.json`。
@@ -219,7 +219,7 @@ openrouter-dashboard/
 
 - 请勿将填好真实 Key 的 `config.json` 或运行时生成的 `accounts.json` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
 - 建议将 `dashboard_token` 设置为足够随机、不易猜测的字符串
-- 如果部署在公网服务器，建议额外配置 HTTPS（可用 Nginx/Caddy 反向代理）以及防火墙限制访问来源
+- 如果部署在公网服务器，务必通过 `dashboard_token` 或 `OR_DASHBOARD_TOKEN` 设置强访问口令，并建议额外配置 HTTPS（可用 Nginx/Caddy 反向代理）以及防火墙限制访问来源
 
 ## 🤖 关于本项目的构建方式
 
@@ -229,7 +229,8 @@ openrouter-dashboard/
 |---|---|
 | Agent 框架 | [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)（CLI 编码智能体） |
 | 使用模型（项目初始） | `anthropic/claude-sonnet-5` |
-| 使用模型（最新迭代） | `deepseek/deepseek-v4.1-flash`（多账户管理、旗舰模型价格对比卡片等） |
+| 使用模型（最新功能迭代） | `deepseek/deepseek-v4.1-flash`（多账户管理、旗舰模型价格对比卡片等） |
+| 使用模型（本次 README 更新） | `openai/gpt-6-luna`（核对 GitHub 最新提交并同步 README） |
 | 模型提供方 | [OpenRouter](https://openrouter.ai) |
 | 开发方式 | 通过自然语言对话，逐步迭代完成需求分析、前后端开发、PWA 适配、Logo 爬取、服务器部署（systemd 自启）、GitHub 仓库创建与发布 |
 
