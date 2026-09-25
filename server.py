@@ -262,6 +262,9 @@ def fetch_flagship_prices():
             # 排除别名（~ 前缀）与 :batch 等变体
             if mid.startswith("~") or ":" in mid:
                 continue
+            # GPT 家族的 Pro 变体与基础版同价且实用价值低，不展示
+            if key == "gpt" and "pro" in m.get("name", "").lower():
+                continue
             ver = _model_major_version(mid, key)
             if ver is None:
                 continue
@@ -286,12 +289,11 @@ def fetch_flagship_prices():
                     "created": m.get("created", 0),
                 }
             )
-        # 旗舰在前：输出价高者优先，同价时 Pro 变体优先，再按发布时间新→旧
+        # 旗舰在前：输出价高者优先，同价按发布时间新→旧
         rows.sort(
             key=lambda r: (
                 -(r["output"] or 0),
                 -(r["input"] or 0),
-                0 if "pro" in r["name"].lower() else 1,
                 -(r["created"] or 0),
                 r["name"],
             )
