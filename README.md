@@ -6,7 +6,7 @@
 
 > 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)**（通过 [OpenRouter](https://openrouter.ai) 调用大模型）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
 >
-> 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）功能迭代改用 **`deepseek/deepseek-v4.1-flash`** 完成。
+> 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）与「旗舰模型价格对比」卡片等迭代改用 **`deepseek/deepseek-v4.1-flash`** 完成。
 
 ## ✨ 功能特性
 
@@ -182,6 +182,7 @@ openrouter-dashboard/
    - `DELETE /api/accounts?id=xxx&token=xxx` ：删除账户（至少保留一个）
    - `GET /api/summary?token=xxx&account=xxx` ：聚合指定账户的 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON（按账户分别缓存 60 秒）
    - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
+   - `GET /api/model_prices?token=xxx[&refresh=1]` ：抓取 OpenRouter 模型价格，返回 GPT / Claude 两大家族「最新一代」旗舰模型的输入/输出价格（单位 USD / 百万 tokens），供底部对比卡片展示（1 小时缓存；带 `refresh=1` 时跳过缓存强制重取）
    - App 消费分布数据通过 `POST https://openrouter.ai/api/v1/analytics/query`（`dimensions: ["app"]`）获取，普通推理 API Key 即可调用，无需 Management Key
 2. 服务端持有真实的 OpenRouter API Key，通过环境隔离保证密钥不会暴露给浏览器/前端
 3. 前端仅需要一个自定义的访问口令（`dashboard_token`），存储在浏览器 `localStorage`，避免每次重新输入
@@ -202,7 +203,7 @@ openrouter-dashboard/
 |---|---|
 | Agent 框架 | [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)（CLI 编码智能体） |
 | 使用模型（项目初始） | `anthropic/claude-sonnet-5` |
-| 使用模型（最新迭代） | `deepseek/deepseek-v4.1-flash`（多账户管理功能） |
+| 使用模型（最新迭代） | `deepseek/deepseek-v4.1-flash`（多账户管理、旗舰模型价格对比卡片等） |
 | 模型提供方 | [OpenRouter](https://openrouter.ai) |
 | 开发方式 | 通过自然语言对话，逐步迭代完成需求分析、前后端开发、PWA 适配、Logo 爬取、服务器部署（systemd 自启）、GitHub 仓库创建与发布 |
 
