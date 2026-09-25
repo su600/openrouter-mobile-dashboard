@@ -1041,6 +1041,7 @@ let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let exchangeRate = 7.1;
 let modelPriceData = null;
+let refreshTimer = null;
 
 // 多账户（API Key）状态
 let accounts = [];
@@ -1114,6 +1115,7 @@ async function loadData() {
 }
 
 function fmt(v, decimals) {
+  if (v === null || v === undefined || isNaN(v)) return "—";
   const rate = currentCurrency === "CNY" ? exchangeRate : 1;
   const symbol = currentCurrency === "CNY" ? "￥" : "$";
   return symbol + (v * rate).toFixed(decimals);
@@ -1210,7 +1212,7 @@ function render(data) {
   document.getElementById("remaining").innerText = fmt(acc.remaining, 2);
   document.getElementById("remaining-label").innerText = `剩余额度 (${unitLabel})`;
   const remainingItem = document.getElementById("remaining-item");
-  if (acc.remaining < REMAINING_DANGER_THRESHOLD) {
+  if (acc.remaining != null && acc.remaining < REMAINING_DANGER_THRESHOLD) {
     remainingItem.classList.remove("good");
     remainingItem.classList.add("danger");
   } else {
@@ -1242,7 +1244,9 @@ function render(data) {
 
   const t = new Date(data.generated_at * 1000);
   const acctLabel = data.account_name ? `账户: ${data.account_name} · ` : "";
-  document.getElementById("update-time").innerText = acctLabel + "更新时间: " + t.toLocaleString("zh-CN");
+  const degradedNote = (data.degraded && data.degraded.length)
+    ? ` · ⚠️ ${data.degraded.join("/")} 获取失败` : "";
+  document.getElementById("update-time").innerText = acctLabel + "更新时间: " + t.toLocaleString("zh-CN") + degradedNote;
 
   // 每日趋势图
   const rate = currentCurrency === "CNY" ? exchangeRate : 1;
@@ -1670,6 +1674,30 @@ function showDashboard() {
   document.getElementById("dashboard-view").style.display = "block";
 }
 
+// ===== 自动刷新（页面隐藏时暂停，回到前台立即刷新一次）=====
+const AUTO_REFRESH_MS = 60000;
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  refreshTimer = setInterval(loadData, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopAutoRefresh();
+  } else {
+    loadData();
+    startAutoRefresh();
+  }
+});
+
 async function init() {
   const token = getToken();
   if (!token) {
@@ -1680,7 +1708,7 @@ async function init() {
     loadData();
     loadNewsTicker();
     loadModelPrices();
-    setInterval(loadData, 60000); // 每60秒自动刷新
+    startAutoRefresh(); // 每60秒自动刷新（页面隐藏时自动暂停）
   }
 }
 

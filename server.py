@@ -36,6 +36,14 @@ def _http_get_json(url, headers=None, timeout=15):
     return resp.json()
 
 
+def _future_or_default(future, default):
+    """等待并发任务结果；若该上游失败则返回默认值，并标记为不可用（用于优雅降级）。"""
+    try:
+        return future.result(), True
+    except Exception:
+        return default, False
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ACCOUNTS_PATH = os.path.join(BASE_DIR, "accounts.json")
@@ -468,9 +476,9 @@ def fetch_openrouter_summary(account):
         f_month = pool.submit(
             fetch_analytics_usage, api_key, utc_month + "-01T00:00:00Z", now_iso, "day"
         )
-        credits_resp = f_credits.result()
-        key_resp = f_key.result()
-        activity_resp = f_activity.result()
+        credits_resp, credits_ok = _future_or_default(f_credits, {})
+        key_resp, key_ok = _future_or_default(f_key, {})
+        activity_resp, activity_ok = _future_or_default(f_activity, {})
         app_ranking = f_app.result()
         analytics_today = f_today.result()
         analytics_month = f_month.result()
@@ -479,9 +487,24 @@ def fetch_openrouter_summary(account):
     key_info = key_resp.get("data", {}) or {}
     activity = activity_resp.get("data", []) or []
 
-    total_credits = credits.get("total_credits", 0) or 0
-    total_usage = credits.get("total_usage", 0) or 0
-    remaining = total_credits - total_usage
+    # 上游部分失败时优雅降级：缺失字段置 None（前端显示 “—”），而不是误报为 0
+    raw_credits = credits.get("total_credits")
+    raw_usage = credits.get("total_usage")
+    total_credits = float(raw_credits) if raw_credits is not None else None
+    total_usage = float(raw_usage) if raw_usage is not None else None
+    if total_credits is not None and total_usage is not None:
+        remaining = total_credits - total_usage
+    else:
+        remaining = None
+    degraded = []
+    if not credits_ok:
+        degraded.append("credits")
+    if not key_ok:
+        degraded.append("key")
+    if not activity_ok:
+        degraded.append("activity")
+    if analytics_today is None and analytics_month is None:
+        degraded.append("analytics")
 
     # 按日期聚合总消费（用于趋势图）
     daily_totals = {}
@@ -533,7 +556,7 @@ def fetch_openrouter_summary(account):
     if analytics_today is not None:
         today_usage = analytics_today
         today_usage_source = "analytics"
-    else:
+    elif total_usage is not None:
         # 兜底：每日 0 点基准差值（天界同为 UTC）
         baseline = load_daily_baseline(account["id"])
         if not baseline or baseline.get("date") != utc_today:
@@ -546,10 +569,14 @@ def fetch_openrouter_summary(account):
             computed = round(baseline.get("remaining_at_midnight", remaining_now) - remaining_now, 4)
         today_usage = max(computed, activity_today_usage, 0.0)
         today_usage_source = "baseline"
+    else:
+        # 连累计消费都取不到：退回用 /activity 的今日值（可能略滞后）
+        today_usage = activity_today_usage
+        today_usage_source = "activity"
 
     # 本月累计消费：优先 Analytics（UTC 月界）；失败时兜底用 activity + 基准历史重建
     if analytics_month is not None:
-        month_usage = max(round(analytics_month, 4), round(today_usage, 4))
+        month_usage = max(round(analytics_month, 4), round(today_usage or 0, 4))
     else:
         month_prefix = utc_month
         month_day_usage = {}
@@ -559,8 +586,8 @@ def fetch_openrouter_summary(account):
         for d, v in _history_daily_usage(account["id"]).items():
             if d.startswith(month_prefix):
                 month_day_usage[d] = v
-        month_day_usage[utc_today] = max(today_usage, month_day_usage.get(utc_today, 0.0))
-        month_usage = max(round(sum(month_day_usage.values()), 4), round(today_usage, 4))
+        month_day_usage[utc_today] = max(today_usage or 0.0, month_day_usage.get(utc_today, 0.0))
+        month_usage = max(round(sum(month_day_usage.values()), 4), round(today_usage or 0, 4))
 
     return {
         "generated_at": int(time.time()),
@@ -578,15 +605,16 @@ def fetch_openrouter_summary(account):
             "usd_to_cny": USD_TO_CNY_RATE,
         },
         "account": {
-            "total_credits": round(total_credits, 4),
-            "remaining": round(remaining, 4),
-            "total_usage": round(total_usage, 4),
+            "total_credits": round(total_credits, 4) if total_credits is not None else None,
+            "remaining": round(remaining, 4) if remaining is not None else None,
+            "total_usage": round(total_usage, 4) if total_usage is not None else None,
             "month_usage": month_usage,
             "today_usage": today_usage,
         },
         "today_usage": today_usage,
         "today_usage_source": today_usage_source,
         "month_usage": month_usage,
+        "degraded": degraded,
         "daily_series": daily_series,
         "model_ranking": model_ranking,
         "app_ranking": app_ranking,
