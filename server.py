@@ -13,6 +13,7 @@ import time
 import hashlib
 import threading
 import datetime
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -212,6 +213,101 @@ def get_latest_models_cached():
         data = fetch_latest_models()
         _models_cache["data"] = data
         _models_cache["ts"] = now
+        return data
+
+
+# ===== 旗舰模型价格对比（全局，与账户无关）=====
+# 提取 GPT 家族 / Claude 家族「最新一代」的旗舰模型价格，缓存1小时
+_prices_cache = {"data": None, "ts": 0}
+_prices_cache_lock = threading.Lock()
+PRICES_CACHE_TTL = 3600
+
+
+def _price_per_million(value):
+    """OpenRouter 的价格是「每 token 的美元数」，统一换算成 USD / 百万 tokens。"""
+    try:
+        return round(float(value) * 1_000_000, 4)
+    except (TypeError, ValueError):
+        return None
+
+
+def _model_major_version(model_id, family):
+    """从模型 ID 解析大版本号：gpt-6-astra -> 6；claude-opus-5.5 -> 5。"""
+    if family == "gpt":
+        m = re.search(r"gpt-(\d+)", model_id)
+    else:
+        m = re.search(r"claude-[a-z]+-(\d+)", model_id)
+    return int(m.group(1)) if m else None
+
+
+def fetch_flagship_prices():
+    """抓取 OpenRouter 模型清单，抽取 GPT 家族与 Claude 家族「最新一代」的旗舰模型价格，
+    统一换算为 USD / 百万 tokens，供看板底部对比卡片使用。
+    """
+    resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
+    resp.raise_for_status()
+    models = resp.json().get("data", [])
+
+    families = [
+        ("gpt", "GPT 家族", "openai/", "gpt"),
+        ("claude", "Claude 家族", "anthropic/", "claude"),
+    ]
+    result = []
+    for key, label, prefix, keyword in families:
+        bucket = []
+        for m in models:
+            mid = m.get("id", "")
+            if not mid.startswith(prefix) or keyword not in mid:
+                continue
+            # 排除别名（~ 前缀）与 :batch 等变体
+            if mid.startswith("~") or ":" in mid:
+                continue
+            ver = _model_major_version(mid, key)
+            if ver is None:
+                continue
+            bucket.append((ver, m))
+        if not bucket:
+            continue
+        latest = max(v for v, _ in bucket)
+        rows = []
+        for ver, m in bucket:
+            if ver != latest:
+                continue
+            pricing = m.get("pricing", {})
+            full_name = m.get("name", m["id"])
+            rows.append(
+                {
+                    "id": m["id"],
+                    "name": full_name.split(": ", 1)[-1],
+                    "input": _price_per_million(pricing.get("prompt")),
+                    "output": _price_per_million(pricing.get("completion")),
+                    "cache_read": _price_per_million(pricing.get("input_cache_read")),
+                    "context_length": m.get("context_length"),
+                    "created": m.get("created", 0),
+                }
+            )
+        # 旗舰在前：输出价高者优先，同价时 Pro 变体优先，再按发布时间新→旧
+        rows.sort(
+            key=lambda r: (
+                -(r["output"] or 0),
+                -(r["input"] or 0),
+                0 if "pro" in r["name"].lower() else 1,
+                -(r["created"] or 0),
+                r["name"],
+            )
+        )
+        result.append({"key": key, "label": label, "generation": latest, "models": rows})
+    return {"updated_at": int(time.time()), "families": result}
+
+
+def get_flagship_prices_cached():
+    with _prices_cache_lock:
+        now = time.time()
+        if _prices_cache["data"] is not None and now - _prices_cache["ts"] < PRICES_CACHE_TTL:
+            return _prices_cache["data"]
+        data = fetch_flagship_prices()
+        _prices_cache["data"] = data
+        _prices_cache["ts"] = now
         return data
 
 
@@ -646,6 +742,15 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_latest_models_cached()
                 self._send_json({"news": data})
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            return
+
+        if parsed.path == "/api/model_prices":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            try:
+                self._send_json(get_flagship_prices_cached())
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             return

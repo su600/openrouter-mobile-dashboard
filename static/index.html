@@ -739,6 +739,95 @@
   .container > .grid-2col { animation-delay: 0.08s; }
   .container > .card:nth-child(4) { animation-delay: 0.12s; }
   .container > .card:nth-child(5) { animation-delay: 0.16s; }
+  .container > .card:nth-child(6) { animation-delay: 0.2s; }
+
+  /* ===== 旗舰模型价格对比（GPT vs Claude） ===== */
+  .price-compare {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  @media (min-width: 768px) {
+    .price-compare { grid-template-columns: 1fr 1fr; }
+    .price-col + .price-col { padding-left: 18px; border-left: 1px solid var(--divider); }
+  }
+  .price-col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-strong);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--divider);
+    margin-bottom: 2px;
+  }
+  .price-col-head .gen-tag {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 6px;
+    border-bottom: 1px solid var(--divider);
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+  .price-row:last-child { border-bottom: none; }
+  .price-row:hover { background: var(--chip-bg); }
+  .price-row-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+  }
+  .price-row-name .name-txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .price-row-name .flag-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--accent-contrast);
+    background: var(--accent);
+    border-radius: 4px;
+    padding: 1px 5px;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+  .price-row-ctx {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  .price-row-price {
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .price-io {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .price-io b { font-weight: 600; }
+  .price-io .in { color: var(--accent); }
+  .price-io .out { color: var(--warn); }
+  .price-col-empty { padding: 14px 0; font-size: 12px; color: var(--text-muted); }
 
   @media (prefers-reduced-motion: reduce) {
     .container > .card, .container > .news-ticker, .container > .grid-2col,
@@ -849,6 +938,16 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title">
+        <span>旗舰模型价格对比 · GPT vs Claude</span>
+        <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
+      </div>
+      <div class="price-compare" id="price-compare">
+        <div class="price-col-empty">加载中...</div>
+      </div>
+    </div>
+
   </div>
 
   <div class="footer">
@@ -910,6 +1009,7 @@ let modelChartInstance = null;
 let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let exchangeRate = 7.1;
+let modelPriceData = null;
 
 // 多账户（API Key）状态
 let accounts = [];
@@ -930,6 +1030,7 @@ function toggleCurrency() {
   btn.innerText = currentCurrency;
   btn.classList.toggle("active", currentCurrency === "CNY");
   if (lastData) render(lastData);
+  renderModelPrices();
 }
 
 function applyTheme(theme) {
@@ -1290,6 +1391,73 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// ===== 旗舰模型价格对比（GPT vs Claude）=====
+function fmtPerMillion(v) {
+  if (v === null || v === undefined) return "—";
+  const rate = currentCurrency === "CNY" ? exchangeRate : 1;
+  const symbol = currentCurrency === "CNY" ? "￥" : "$";
+  const val = v * rate;
+  let decimals = 2;
+  if (val < 1) decimals = 3;
+  if (val < 0.1) decimals = 4;
+  return symbol + val.toFixed(decimals);
+}
+
+async function loadModelPrices() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const resp = await fetch(`/api/model_prices?token=${encodeURIComponent(token)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.error) return;
+    modelPriceData = data;
+    renderModelPrices();
+  } catch (e) {
+    // 静默失败，不影响主看板
+  }
+}
+
+function renderModelPrices() {
+  const box = document.getElementById("price-compare");
+  if (!box) return;
+  const noteEl = document.getElementById("price-unit-note");
+  if (noteEl) noteEl.innerText = (currentCurrency === "CNY" ? "CNY" : "USD") + " / 百万 tokens";
+  if (!modelPriceData || !modelPriceData.families || modelPriceData.families.length === 0) {
+    box.innerHTML = '<div class="price-col-empty">暂无价格数据</div>';
+    return;
+  }
+  box.innerHTML = modelPriceData.families.map(fam => {
+    const rows = (fam.models || []).map((m, idx) => {
+      const icon = getModelIcon(m.id);
+      const ctx = m.context_length ? `${formatTokens(m.context_length)} 上下文` : "";
+      const badge = idx === 0 ? '<span class="flag-badge">旗舰</span>' : "";
+      return `
+      <div class="price-row">
+        <div class="price-row-name">
+          ${icon}
+          <div style="min-width:0;">
+            <div class="name-txt">${badge}${escapeHtml(m.name)}</div>
+            ${ctx ? `<div class="price-row-ctx">${ctx}</div>` : ""}
+          </div>
+        </div>
+        <div class="price-row-price">
+          <div class="price-io">入 <b class="in">${fmtPerMillion(m.input)}</b></div>
+          <div class="price-io">出 <b class="out">${fmtPerMillion(m.output)}</b></div>
+        </div>
+      </div>`;
+    }).join("");
+    return `
+    <div class="price-col">
+      <div class="price-col-head">
+        <span>${escapeHtml(fam.label)}</span>
+        <span class="gen-tag">最新一代 v${fam.generation}</span>
+      </div>
+      ${rows || '<div class="price-col-empty">暂无数据</div>'}
+    </div>`;
+  }).join("");
+}
+
 // ===== 多账户（API Key）管理 =====
 async function loadAccounts() {
   const token = getToken();
@@ -1462,6 +1630,7 @@ async function init() {
     await loadAccounts();
     loadData();
     loadNewsTicker();
+    loadModelPrices();
     setInterval(loadData, 60000); // 每60秒自动刷新
   }
 }
