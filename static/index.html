@@ -941,7 +941,10 @@
     <div class="card">
       <div class="card-title">
         <span>旗舰模型价格对比 · GPT vs Claude</span>
-        <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
+        <div class="header-actions">
+          <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
+          <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">🔄 刷新价格</button>
+        </div>
       </div>
       <div class="price-compare" id="price-compare">
         <div class="price-col-empty">加载中...</div>
@@ -1403,19 +1406,37 @@ function fmtPerMillion(v) {
   return symbol + val.toFixed(decimals);
 }
 
-async function loadModelPrices() {
+async function loadModelPrices(force) {
   const token = getToken();
   if (!token) return;
+  const btn = document.getElementById("price-refresh-btn");
+  const original = "🔄 刷新价格";
+  if (force && btn) { btn.disabled = true; btn.innerText = "刷新中…"; }
   try {
-    const resp = await fetch(`/api/model_prices?token=${encodeURIComponent(token)}`);
+    const url = `/api/model_prices?token=${encodeURIComponent(token)}` + (force ? "&refresh=1" : "");
+    const resp = await fetch(url);
     if (!resp.ok) return;
     const data = await resp.json();
     if (data.error) return;
     modelPriceData = data;
     renderModelPrices();
+    if (force && btn) btn.innerText = "✅ 已更新";
   } catch (e) {
     // 静默失败，不影响主看板
+  } finally {
+    if (force && btn) {
+      btn.disabled = false;
+      if (btn.innerText === "✅ 已更新") {
+        setTimeout(() => { btn.innerText = original; }, 1500);
+      } else {
+        btn.innerText = original;
+      }
+    }
   }
+}
+
+function refreshModelPrices() {
+  loadModelPrices(true);
 }
 
 function renderModelPrices() {

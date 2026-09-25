@@ -302,10 +302,14 @@ def fetch_flagship_prices():
     return {"updated_at": int(time.time()), "families": result}
 
 
-def get_flagship_prices_cached():
+def get_flagship_prices_cached(force=False):
     with _prices_cache_lock:
         now = time.time()
-        if _prices_cache["data"] is not None and now - _prices_cache["ts"] < PRICES_CACHE_TTL:
+        if (
+            not force
+            and _prices_cache["data"] is not None
+            and now - _prices_cache["ts"] < PRICES_CACHE_TTL
+        ):
             return _prices_cache["data"]
         data = fetch_flagship_prices()
         _prices_cache["data"] = data
@@ -752,7 +756,9 @@ class Handler(BaseHTTPRequestHandler):
             if not self._authorized(qs):
                 return self._unauthorized()
             try:
-                self._send_json(get_flagship_prices_cached())
+                # refresh=1 时跳过服务端缓存，强制重新抓取最新价格
+                force = qs.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+                self._send_json(get_flagship_prices_cached(force=force))
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             return
