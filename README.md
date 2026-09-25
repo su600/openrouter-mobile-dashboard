@@ -29,6 +29,7 @@
 - 📱 **PWA 支持**：可直接“添加到主屏幕”，像原生 App 一样使用
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
 - 🔑 **多账户 / 多 API Key 管理**：可在看板内添加多个 OpenRouter API Key，顶部下拉一键切换，分别查看不同账户的余额、消费、App 分布与模型排行；添加时自动调用官方接口校验 Key 有效性，支持重命名与删除；Key 仅保存在服务端 `accounts.json`，前端只能看到脱敏掩码（如 `sk-or-v1-b...d416`）
+- ⚡ **性能优化**：后端**全局复用 `requests.Session`**（连接池，省去重复 TCP/TLS 握手）+ **并发拉取**上游 6 个接口（总耗时由最慢一个决定）；对 HTML/JSON/SVG 等文本响应自动 **gzip**（首页 54KB → 13KB，约 -76%）；静态资源设置合理缓存策略（图片等 `max-age=86400`，HTML/JS/JSON `no-cache`）+ `Vary: Accept-Encoding`
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
 
 ## 📸 界面预览
@@ -188,6 +189,7 @@ openrouter-dashboard/
 3. 前端仅需要一个自定义的访问口令（`dashboard_token`），存储在浏览器 `localStorage`，避免每次重新输入
 4. 前端内置预警阈值逻辑（剩余额度/今日消费）与响应式布局断点，均可在 `static/index.html` 中直接修改对应 JS 常量/CSS `@media` 断点
 5. 主题切换基于 CSS 变量（`:root` 与 `html[data-theme="light"]`）实现，选择保存在 `localStorage`，刷新后保持上次选择
+6. 后端性能：全局复用 `requests.Session`（连接池）；`/api/summary` 用 `ThreadPoolExecutor` 并发拉取 credits/key/activity/analytics×2/app 共 6 个上游请求；对 HTML/JSON/SVG 等文本响应按需 gzip，并为静态资源附加 `Cache-Control`
 
 ## ⚠️ 安全提示
 
@@ -217,6 +219,7 @@ openrouter-dashboard/
   - 同一产品线仅保留最新版本（如 Opus 5 与 5.5 只留 5.5）
   - 标题栏「刷新」按钮支持**手动强制重取**（`refresh=1` 跳过 1 小时缓存），不做定期刷新
   - 手机端同样保持**两列并排**（行内改为「名称在上 / 价格在下」，精简字号）
+- ⚡ 性能优化：后端全局复用 `requests.Session`（连接池）；`/api/summary` 的 6 个上游请求改为**并发**拉取（冷启动由串行数秒降到 ~0.7s）；文本响应自动 **gzip** + 静态资源缓存头
 
 ### 2026-09-24
 - 🐛 修复「今日消费」过点不清零：日界由本地时间改为 **UTC 自然日**，与 OpenRouter 官方对齐（北京时间 08:00 重置）

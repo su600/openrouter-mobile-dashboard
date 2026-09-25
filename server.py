@@ -10,14 +10,31 @@ OpenRouter 手机看板后端
 import os
 import json
 import time
+import gzip
 import hashlib
 import threading
 import datetime
 import re
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 import requests
+from requests.adapters import HTTPAdapter
+
+# 全局复用一个 requests.Session，启用连接池，减少每次上游请求的 TCP/TLS 握手开销
+SESSION = requests.Session()
+_HTTP_ADAPTER = HTTPAdapter(pool_connections=10, pool_maxsize=20)
+SESSION.mount("https://", _HTTP_ADAPTER)
+SESSION.mount("http://", _HTTP_ADAPTER)
+
+
+def _http_get_json(url, headers=None, timeout=15):
+    """GET 并解析 JSON；失败时抛出异常（由调用方决定兜底策略）。"""
+    resp = SESSION.get(url, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    return resp.json()
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -135,7 +152,7 @@ def public_account(a):
 def validate_openrouter_key(api_key):
     """调用 /key 校验 Key 是否有效，返回 (ok, message, key_info)。"""
     try:
-        resp = requests.get(
+        resp = SESSION.get(
             "https://openrouter.ai/api/v1/key",
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=15,
@@ -178,7 +195,7 @@ def guess_vendor(model_id, model_name):
 
 def fetch_latest_models():
     """拉取 OpenRouter 全量模型列表，按关注厂商分组，取每家最新的一个模型作为“新闻”"""
-    resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
+    resp = SESSION.get("https://openrouter.ai/api/v1/models", timeout=15)
     resp.raise_for_status()
     models = resp.json().get("data", [])
 
@@ -255,7 +272,7 @@ def fetch_flagship_prices():
     """抓取 OpenRouter 模型清单，抽取 GPT 家族与 Claude 家族「最新一代」的旗舰模型价格，
     统一换算为 USD / 百万 tokens，供看板底部对比卡片使用。
     """
-    resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
+    resp = SESSION.get("https://openrouter.ai/api/v1/models", timeout=15)
     resp.raise_for_status()
     models = resp.json().get("data", [])
 
@@ -354,7 +371,7 @@ def fetch_app_usage(api_key, start=None, end=None, granularity="hour"):
     if end is None:
         end = time.strftime("%Y-%m-%dT23:59:59Z", time.gmtime(now))
     try:
-        resp = requests.post(
+        resp = SESSION.post(
             "https://openrouter.ai/api/v1/analytics/query",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
@@ -388,7 +405,7 @@ def fetch_analytics_usage(api_key, start, end, granularity):
     与 OpenRouter 官方口径一致（对应北京时间每天 08:00 重置）。
     """
     try:
-        resp = requests.post(
+        resp = SESSION.post(
             "https://openrouter.ai/api/v1/analytics/query",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
@@ -431,15 +448,32 @@ def fetch_app_usage_month(api_key):
 def fetch_openrouter_summary(account):
     api_key = account["api_key"]
     headers = {"Authorization": f"Bearer {api_key}"}
-    credits_resp = requests.get(
-        "https://openrouter.ai/api/v1/credits", headers=headers, timeout=15
-    ).json()
-    key_resp = requests.get(
-        "https://openrouter.ai/api/v1/key", headers=headers, timeout=15
-    ).json()
-    activity_resp = requests.get(
-        "https://openrouter.ai/api/v1/activity", headers=headers, timeout=15
-    ).json()
+
+    # 时间边界（UTC，与 OpenRouter 官方一致，对应北京时间 08:00 重置）
+    now_ts = time.time()
+    utc_today = time.strftime("%Y-%m-%d", time.gmtime(now_ts))
+    utc_month = utc_today[:7]
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts))
+    today = utc_today  # 供下方兜底逻辑使用
+
+    # 并发拉取所有上游数据，总耗时由最慢的一个请求决定，而非逐个相加
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        f_credits = pool.submit(_http_get_json, "https://openrouter.ai/api/v1/credits", headers)
+        f_key = pool.submit(_http_get_json, "https://openrouter.ai/api/v1/key", headers)
+        f_activity = pool.submit(_http_get_json, "https://openrouter.ai/api/v1/activity", headers)
+        f_app = pool.submit(fetch_app_usage, api_key)
+        f_today = pool.submit(
+            fetch_analytics_usage, api_key, utc_today + "T00:00:00Z", now_iso, "hour"
+        )
+        f_month = pool.submit(
+            fetch_analytics_usage, api_key, utc_month + "-01T00:00:00Z", now_iso, "day"
+        )
+        credits_resp = f_credits.result()
+        key_resp = f_key.result()
+        activity_resp = f_activity.result()
+        app_ranking = f_app.result()
+        analytics_today = f_today.result()
+        analytics_month = f_month.result()
 
     credits = credits_resp.get("data", {}) or {}
     key_info = key_resp.get("data", {}) or {}
@@ -494,14 +528,6 @@ def fetch_openrouter_summary(account):
     # 日界口径：与 OpenRouter 官方保持一致——以 UTC 自然日为界（对应北京时间每天 08:00 重置）。
     # 取数优先用 Analytics API（实时性远好于 /activity），避免用 total_usage 差值：
     # total_usage 结算有延迟，会在跨日瞬间把前一天的消费错记到当天，出现“今日消费不清零”的假象。
-    now_ts = time.time()
-    utc_today = time.strftime("%Y-%m-%d", time.gmtime(now_ts))
-    utc_month = utc_today[:7]
-    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts))
-    today = utc_today  # 供下方兜底逻辑使用
-
-    analytics_today = fetch_analytics_usage(api_key, utc_today + "T00:00:00Z", now_iso, "hour")
-    analytics_month = fetch_analytics_usage(api_key, utc_month + "-01T00:00:00Z", now_iso, "day")
     activity_today_usage = round(daily_totals.get(utc_today, 0.0), 4)
 
     if analytics_today is not None:
@@ -563,7 +589,7 @@ def fetch_openrouter_summary(account):
         "month_usage": month_usage,
         "daily_series": daily_series,
         "model_ranking": model_ranking,
-        "app_ranking": fetch_app_usage(api_key),
+        "app_ranking": app_ranking,
     }
 
 
@@ -692,26 +718,44 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # 静默日志，避免刷屏
 
-    def _send_json(self, obj, code=200):
-        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    def _write_body(self, body, content_type, code=200, cache_control=None):
+        """统一写出响应体：对可压缩的文本类内容按需 gzip，并设置可选的缓存策略。"""
+        body = body or b""
+        compressible = any(k in content_type for k in ("text/", "json", "javascript", "svg"))
+        gzip_ok = "gzip" in (self.headers.get("Accept-Encoding") or "").lower()
+        extra = {}
+        if compressible and gzip_ok and len(body) >= 1024:
+            gz = gzip.compress(body, 6)
+            if len(gz) < len(body):
+                body = gz
+                extra["Content-Encoding"] = "gzip"
+                extra["Vary"] = "Accept-Encoding"
         self.send_response(code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        if cache_control:
+            self.send_header("Cache-Control", cache_control)
+        for k, v in extra.items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_file(self, path, content_type):
+    def _send_json(self, obj, code=200):
+        self._write_body(
+            json.dumps(obj, ensure_ascii=False).encode("utf-8"),
+            "application/json; charset=utf-8",
+            code=code,
+        )
+
+    def _send_file(self, path, content_type, cache_control=None):
         try:
             with open(path, "rb") as f:
                 body = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         except FileNotFoundError:
             self.send_response(404)
             self.end_headers()
+            return
+        self._write_body(body, content_type, cache_control=cache_control)
 
     def _read_json_body(self):
         try:
@@ -811,7 +855,11 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/" or parsed.path == "/index.html":
-            self._send_file(os.path.join(STATIC_DIR, "index.html"), "text/html; charset=utf-8")
+            self._send_file(
+                os.path.join(STATIC_DIR, "index.html"),
+                "text/html; charset=utf-8",
+                cache_control="no-cache",
+            )
             return
 
         # 静态资源（支持子目录，如 /logos/xxx.svg）
@@ -829,7 +877,9 @@ class Handler(BaseHTTPRequestHandler):
                 ".jpeg": "image/jpeg",
                 ".json": "application/json",
             }.get(ext, "application/octet-stream")
-            self._send_file(full_path, ctype)
+            # 图片等静态资源可长缓存；js/json 不缓存，便于更新
+            cache_control = "no-cache" if ext in (".js", ".json") else "public, max-age=86400"
+            self._send_file(full_path, ctype, cache_control=cache_control)
             return
 
         self.send_response(404)
