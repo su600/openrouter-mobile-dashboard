@@ -371,6 +371,7 @@
     border-radius: 8px;
     padding: 4px 10px;
     font-size: 12px;
+    white-space: nowrap;
     cursor: pointer;
     transition: background 0.15s ease, transform 0.15s ease;
   }
@@ -744,17 +745,20 @@
   /* ===== 旗舰模型价格对比（GPT vs Claude） ===== */
   .price-compare {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 18px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
+  .price-col + .price-col { padding-left: 10px; border-left: 1px solid var(--divider); }
   @media (min-width: 768px) {
-    .price-compare { grid-template-columns: 1fr 1fr; }
-    .price-col + .price-col { padding-left: 18px; border-left: 1px solid var(--divider); }
+    .price-compare { gap: 18px; }
+    .price-col + .price-col { padding-left: 18px; }
   }
+  .price-col { min-width: 0; }
   .price-col-head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
     font-size: 13px;
     font-weight: 700;
     color: var(--text-strong);
@@ -775,8 +779,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    padding: 9px 6px;
+    gap: 6px;
+    padding: 8px 2px;
     border-bottom: 1px solid var(--divider);
     border-radius: 6px;
     transition: background 0.15s ease;
@@ -786,9 +790,9 @@
   .price-row-name {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text);
     overflow: hidden;
   }
@@ -804,14 +808,17 @@
     color: var(--accent-contrast);
     background: var(--accent);
     border-radius: 4px;
-    padding: 1px 5px;
+    padding: 1px 4px;
     letter-spacing: 0.5px;
-    margin-right: 4px;
+    margin-right: 3px;
   }
   .price-row-ctx {
     font-size: 10px;
     color: var(--text-faint);
     margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .price-row-price {
     text-align: right;
@@ -819,8 +826,8 @@
     font-variant-numeric: tabular-nums;
   }
   .price-io {
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 11px;
+    line-height: 15px;
     color: var(--text-muted);
     white-space: nowrap;
   }
@@ -828,6 +835,27 @@
   .price-io .in { color: var(--accent); }
   .price-io .out { color: var(--warn); }
   .price-col-empty { padding: 14px 0; font-size: 12px; color: var(--text-muted); }
+
+  /* 窄屏：价格卡片保持两列，行内改为「名称在上 / 价格在下」以留出可读宽度 */
+  @media (max-width: 767px) {
+    .price-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1px;
+      padding: 7px 2px;
+    }
+    .price-row-price {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .price-io { line-height: 15px; }
+    .price-col-head { gap: 5px; }
+    .gen-full { display: none; }
+    .price-row-name { font-size: 11px; }
+    .price-row-name .model-icon { width: 18px; height: 18px; min-width: 18px; }
+    .price-row-name .flag-badge { font-size: 8px; padding: 1px 3px; margin-right: 2px; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .container > .card, .container > .news-ticker, .container > .grid-2col,
@@ -1472,7 +1500,7 @@ function renderModelPrices() {
     <div class="price-col">
       <div class="price-col-head">
         <span>${escapeHtml(fam.label)}</span>
-        <span class="gen-tag">最新一代 v${fam.generation}</span>
+        <span class="gen-tag"><span class="gen-full">最新一代 </span>v${fam.generation}</span>
       </div>
       ${rows || '<div class="price-col-empty">暂无数据</div>'}
     </div>`;
