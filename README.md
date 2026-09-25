@@ -32,6 +32,8 @@
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
 - 🔑 **多账户 / 多 API Key 管理**：可在看板内添加多个 OpenRouter API Key，顶部下拉一键切换，分别查看不同账户的余额、消费、App 分布与模型排行；添加时自动调用官方接口校验 Key 有效性，支持重命名与删除；Key 仅保存在服务端 `accounts.json`，前端只能看到脱敏掩码（如 `sk-or-v1-b...d416`）
 - ⚡ **性能优化**：后端**全局复用 `requests.Session`**（连接池，省去重复 TCP/TLS 握手）+ **并发拉取**上游 6 个接口（总耗时由最慢一个决定）；对 HTML/JSON/SVG 等文本响应自动 **gzip**（首页 54KB → 13KB，约 -76%）；静态资源设置合理缓存策略（图片等 `max-age=86400`，HTML/JS/JSON `no-cache`）+ `Vary: Accept-Encoding`
+- 🩺 **健康检查与日志**：内置 `/healthz`（无需鉴权，供 systemd/监控探活）；统一日志输出到 stderr，上游失败等告警可通过 `journalctl -u or-dashboard -f` 查看
+- 🧪 **单元测试**：`tests/` 下提供 23 个纯函数用例（基准推算 / 旗舰模型筛选 / 账户脱敏），无需网络即可运行
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
 
 ## 📸 界面预览
@@ -145,14 +147,32 @@ sudo systemctl enable --now or-dashboard.service
 
 安装后即可像原生 App 一样在主屏幕直接打开，无浏览器地址栏。
 
+### 8. （可选）运行单元测试
+
+```bash
+python3 -m unittest discover -s tests -t . -v
+```
+
+覆盖基准历史推算、旗舰模型筛选、账户脱敏等纯函数逻辑，无需网络。
+
 ## 🗂️ 项目结构
 
 ```
 openrouter-dashboard/
-├── server.py              # 后端服务（Python 标准库 http.server，无框架依赖）
+├── server.py              # HTTP 入口：路由 / 鉴权 / gzip+缓存 / 静态资源（标准库 http.server，无框架）
+├── openrouter_api.py      # OpenRouter 上游调用与聚合（Session 连接池、并发、缓存、优雅降级）
+├── accounts.py            # 多账户（API Key）存储
+├── baseline.py            # 每日 0 点基准与逐日消费推算
+├── config.py              # 配置与路径常量（config.json 缺失时回退默认值，便于导入/测试）
+├── logging_setup.py       # 统一日志（输出 stderr，systemd/journald 可见）
 ├── baseline_capture.py    # 每日 UTC 0 点（北京 08:01）余额基准捕获脚本（遍历所有账户，配合 cron 使用、作兜底）
 ├── config.json.example    # 配置文件示例（真实配置请自行创建 config.json，不会被提交）
 ├── accounts.json          # 运行时多账户存储（自动生成，含明文 Key，不会被提交）
+├── daily_baseline.json    # 运行时基准数据（自动生成，不会被提交）
+├── tests/                 # 单元测试（纯函数，无需网络）
+│   ├── test_baseline.py   # 基准推算 / 日期工具
+│   ├── test_models.py     # 旗舰模型筛选 / 价格换算
+│   └── test_accounts.py   # 账户脱敏 / ID 派生
 ├── .gitignore
 ├── README.md
 └── static/
@@ -186,6 +206,7 @@ openrouter-dashboard/
    - `GET /api/summary?token=xxx&account=xxx` ：聚合指定账户的 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON（按账户分别缓存 60 秒）
    - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
    - `GET /api/model_prices?token=xxx[&refresh=1]` ：抓取 OpenRouter 模型价格，返回 GPT / Claude 两大家族「最新一代」旗舰模型的输入/输出价格（单位 USD / 百万 tokens），供底部对比卡片展示（1 小时缓存；带 `refresh=1` 时跳过缓存强制重取）
+   - `GET /healthz` ：健康检查，无需鉴权，返回 `{"ok": true, "time": ...}`，供 systemd / 监控探活
    - App 消费分布数据通过 `POST https://openrouter.ai/api/v1/analytics/query`（`dimensions: ["app"]`）获取，普通推理 API Key 即可调用，无需 Management Key
 2. 服务端持有真实的 OpenRouter API Key，通过环境隔离保证密钥不会暴露给浏览器/前端
 3. 前端仅需要一个自定义的访问口令（`dashboard_token`），存储在浏览器 `localStorage`，避免每次重新输入
@@ -225,6 +246,9 @@ openrouter-dashboard/
 - ⚡ 性能优化：后端全局复用 `requests.Session`（连接池）；`/api/summary` 的 6 个上游请求改为**并发**拉取（冷启动由串行数秒降到 ~0.7s）；文本响应自动 **gzip** + 静态资源缓存头
 - 🔋 页面切到后台**暂停自动刷新**，回到前台立即刷新一次再恢复
 - 🛡️ 上游异常**降级**：credits/key/activity 任一失败时，数值显示“—”、并在更新时间旁标注失败项，不再整页 500
+- 🧩 重构：拆分为 `server / openrouter_api / accounts / baseline / config / logging_setup` 模块；新增 **23 个单元测试**（`tests/`）
+- 🩺 新增 `/healthz` 健康检查；统一日志输出到 stderr（`journalctl -u or-dashboard`）
+- 🔒 静态资源路径校验改用 `os.path.commonpath`
 
 ### 2026-09-24
 - 🐛 修复「今日消费」过点不清零：日界由本地时间改为 **UTC 自然日**，与 OpenRouter 官方对齐（北京时间 08:00 重置）
