@@ -943,7 +943,7 @@
         <span>旗舰模型价格对比 · GPT vs Claude</span>
         <div class="header-actions">
           <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
-          <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">🔄 刷新价格</button>
+          <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">刷新</button>
         </div>
       </div>
       <div class="price-compare" id="price-compare">
@@ -1410,7 +1410,7 @@ async function loadModelPrices(force) {
   const token = getToken();
   if (!token) return;
   const btn = document.getElementById("price-refresh-btn");
-  const original = "🔄 刷新价格";
+  const original = "刷新";
   if (force && btn) { btn.disabled = true; btn.innerText = "刷新中…"; }
   try {
     const url = `/api/model_prices?token=${encodeURIComponent(token)}` + (force ? "&refresh=1" : "");

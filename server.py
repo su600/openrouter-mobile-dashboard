@@ -240,6 +240,17 @@ def _model_major_version(model_id, family):
     return int(m.group(1)) if m else None
 
 
+def _model_series(model_id, family):
+    """提取模型「产品线」标识，用于同一系列只保留最新版本。
+    例：openai/gpt-6-astra -> astra；anthropic/claude-opus-5.5 -> opus。
+    """
+    if family == "gpt":
+        m = re.match(r"openai/gpt-\d+(?:\.\d+)?-(.+)$", model_id)
+        return m.group(1) if m else model_id
+    m = re.match(r"anthropic/claude-([a-z]+)-\d", model_id)
+    return m.group(1) if m else model_id
+
+
 def fetch_flagship_prices():
     """抓取 OpenRouter 模型清单，抽取 GPT 家族与 Claude 家族「最新一代」的旗舰模型价格，
     统一换算为 USD / 百万 tokens，供看板底部对比卡片使用。
@@ -289,6 +300,14 @@ def fetch_flagship_prices():
                     "created": m.get("created", 0),
                 }
             )
+        # 同一系列只保留最新版本（created 最大者），如 Opus 5 与 5.5 只留 5.5
+        newest_by_series = {}
+        for r in rows:
+            series = _model_series(r["id"], key)
+            cur = newest_by_series.get(series)
+            if cur is None or (r["created"] or 0) > (cur["created"] or 0):
+                newest_by_series[series] = r
+        rows = list(newest_by_series.values())
         # 旗舰在前：输出价高者优先，同价按发布时间新→旧
         rows.sort(
             key=lambda r: (
