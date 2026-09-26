@@ -16,9 +16,9 @@
   * { box-sizing: border-box; }
   :root {
     --bg: #0f1117;
-    --ambient-blue: rgba(96,165,250,0.12);
-    --ambient-cyan: rgba(74,222,128,0.05);
-    --ambient-violet: rgba(99,115,190,0.04);
+    --ambient-blue: rgba(148,163,184,0.035);
+    --ambient-cyan: rgba(255,255,255,0.018);
+    --ambient-violet: rgba(100,116,139,0.025);
     --header-grad-1: rgba(28,31,46,0.08);
     --header-grad-2: rgba(18,20,29,0.12);
     --text: #e6e8ec;
@@ -27,13 +27,12 @@
     --text-faint: #6b7085;
     --card-bg: rgba(26,29,41,0.01);
     --card-bg-solid: #1a1d29;
-    --card-border: rgba(180,194,224,0.16);
-    --glass-highlight: rgba(255,255,255,0.11);
-    --glass-sheen: linear-gradient(140deg, rgba(180,198,230,0.04), rgba(255,255,255,0.01) 48%, transparent 76%);
-    --section-accent: #8eafff;
+    --card-border: rgba(190,194,207,0.14);
+    --glass-highlight: rgba(255,255,255,0.10);
+    --glass-sheen: linear-gradient(140deg, rgba(210,214,224,0.03), rgba(255,255,255,0.008) 48%, transparent 76%);
     --glass-blur: 34px;
-    --card-shadow: 0 6px 20px rgba(0,0,0,0.30), 0 0 26px rgba(96,165,250,0.035), inset 0 1px 0 var(--glass-highlight);
-    --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), 0 0 30px rgba(96,165,250,0.06), inset 0 1px 0 var(--glass-highlight);
+    --card-shadow: 0 6px 20px rgba(0,0,0,0.30), inset 0 1px 0 var(--glass-highlight);
+    --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), inset 0 1px 0 var(--glass-highlight);
     --divider: #262a3a;
     --input-bg: rgba(26,29,41,0.82);
     --input-border: #2a2e3f;
@@ -48,9 +47,9 @@
   }
   html[data-theme="light"] {
     --bg: #f3f5f9;
-    --ambient-blue: rgba(96,165,250,0.10);
-    --ambient-cyan: rgba(56,189,248,0.07);
-    --ambient-violet: rgba(99,102,241,0.045);
+    --ambient-blue: rgba(148,163,184,0.05);
+    --ambient-cyan: rgba(255,255,255,0.035);
+    --ambient-violet: rgba(100,116,139,0.025);
     --header-grad-1: rgba(255,255,255,0.84);
     --header-grad-2: rgba(238,241,247,0.78);
     --text: #232733;
@@ -61,8 +60,7 @@
     --card-bg-solid: #ffffff;
     --card-border: rgba(174,184,204,0.48);
     --glass-highlight: rgba(255,255,255,0.88);
-    --glass-sheen: linear-gradient(140deg, rgba(255,255,255,0.72), rgba(240,246,255,0.18) 48%, transparent 76%);
-    --section-accent: #3769c8;
+    --glass-sheen: linear-gradient(140deg, rgba(255,255,255,0.72), rgba(245,246,249,0.18) 48%, transparent 76%);
     --card-shadow: 0 4px 14px rgba(30,34,50,0.08), inset 0 1px 0 var(--glass-highlight);
     --card-shadow-hover: 0 8px 20px rgba(30,34,50,0.12), inset 0 1px 0 var(--glass-highlight);
     --divider: #edeff5;
@@ -172,8 +170,7 @@
   }
   .card-title {
     font-size: 13px;
-    color: var(--section-accent);
-    font-weight: 600;
+    color: var(--text-muted);
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
