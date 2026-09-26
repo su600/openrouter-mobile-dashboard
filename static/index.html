@@ -717,6 +717,21 @@
     color: var(--text-strong);
     font-weight: 600;
   }
+  .news-ticker .track span.item b.model-name.is-recent {
+    color: var(--accent);
+    font-weight: 750;
+  }
+  .news-ticker .track span.item .news-recent-badge {
+    flex-shrink: 0;
+    color: var(--accent-contrast);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 10px;
+    line-height: 1.2;
+    font-weight: 700;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
   .news-ticker .track span.item .news-date {
     color: var(--text-faint);
     font-size: 11px;
@@ -1187,6 +1202,14 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+function stripVendorPrefix(modelName, vendor) {
+  const name = String(modelName || "");
+  const prefix = String(vendor || "").trim().toLowerCase();
+  const colon = name.indexOf(":");
+  if (!prefix || colon < 0 || name.slice(0, colon).trim().toLowerCase() !== prefix) return name;
+  return name.slice(colon + 1).trimStart();
+}
+
 let newsLoaded = false;
 async function loadNewsTicker() {
   if (newsLoaded) return;
@@ -1200,7 +1223,13 @@ async function loadNewsTicker() {
     const track = document.getElementById("news-track");
     const buildItems = () => data.news.map(n => {
       const icon = getModelIcon(n.model_id);
-      return `<span class="item">${icon}<b>${n.vendor}</b> 发布 ${n.model_name} <span class="news-date">${n.date}</span></span>`;
+      const ageMs = Date.now() - Number(n.created) * 1000;
+      const isRecent = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000;
+      const vendor = escapeHtml(n.vendor);
+      const modelName = escapeHtml(stripVendorPrefix(n.model_name, n.vendor));
+      const recentBadge = isRecent ? '<span class="news-recent-badge">🆕 近7天</span>' : "";
+      const recentClass = isRecent ? " is-recent" : "";
+      return `<span class="item${recentClass}">${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b>${recentBadge} <span class="news-date">${escapeHtml(n.date)}</span></span>`;
     }).join("");
     // 复制两份拼接，配合 translateX(-50%) 实现无缝循环滚动
     track.innerHTML = buildItems() + buildItems();
