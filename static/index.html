@@ -694,16 +694,28 @@
   }
   .news-ticker .track-wrap {
     flex: 1;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     position: relative;
-    height: 20px;
+    height: 24px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    cursor: grab;
+    user-select: none;
+  }
+  .news-ticker .track-wrap::-webkit-scrollbar { display: none; }
+  .news-ticker .track-wrap.is-dragging { cursor: grabbing; }
+  .news-ticker .track-wrap:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: 4px;
   }
   .news-ticker .track {
     display: flex;
-    position: absolute;
+    position: relative;
+    width: max-content;
     white-space: nowrap;
-    will-change: transform;
-    animation: ticker-scroll linear infinite;
   }
   .news-ticker .track span.item {
     display: inline-flex;
@@ -721,26 +733,16 @@
     color: var(--accent);
     font-weight: 750;
   }
-  .news-ticker .track span.item .news-recent-badge {
-    flex-shrink: 0;
-    color: var(--accent-contrast);
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    border-radius: 999px;
-    padding: 2px 7px;
-    font-size: 10px;
-    line-height: 1.2;
-    font-weight: 700;
-    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
+  .news-ticker .track span.item .news-new-icon {
+    color: var(--warn);
+    font-size: 15px;
+    line-height: 1;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--warn) 55%, transparent));
   }
   .news-ticker .track span.item .news-date {
     color: var(--text-faint);
     font-size: 11px;
   }
-  @keyframes ticker-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
   @keyframes fade-in-up {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -961,7 +963,7 @@
 
     <div class="news-ticker" id="news-ticker" style="display:none;">
       <span class="tag">🆕 新品</span>
-      <div class="track-wrap">
+      <div class="track-wrap" id="news-track-wrap" tabindex="0" aria-label="模型新品发布，可横向滑动查看">
         <div class="track" id="news-track"></div>
       </div>
     </div>
@@ -1211,6 +1213,55 @@ function stripVendorPrefix(modelName, vendor) {
 }
 
 let newsLoaded = false;
+function startNewsTickerScroll(trackWrap, track) {
+  let lastFrame = 0;
+  let pausedUntil = 0;
+  let dragging = false;
+  let dragStartX = 0;
+  let dragStartScroll = 0;
+  const pauseAutoScroll = (ms = 2200) => { pausedUntil = performance.now() + ms; };
+
+  const animate = (now) => {
+    const elapsed = lastFrame ? Math.min(now - lastFrame, 100) : 0;
+    lastFrame = now;
+    const loopWidth = track.scrollWidth / 2;
+    if (loopWidth > trackWrap.clientWidth && now >= pausedUntil) {
+      trackWrap.scrollLeft += elapsed * 0.05; // 默认约 50px/秒
+      if (trackWrap.scrollLeft >= loopWidth) trackWrap.scrollLeft %= loopWidth;
+    }
+    requestAnimationFrame(animate);
+  };
+  requestAnimationFrame(animate);
+
+  trackWrap.addEventListener("pointerdown", (e) => {
+    pauseAutoScroll();
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartScroll = trackWrap.scrollLeft;
+    trackWrap.classList.add("is-dragging");
+    trackWrap.setPointerCapture(e.pointerId);
+  });
+  trackWrap.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    trackWrap.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+    e.preventDefault();
+  });
+  const endPointerInteraction = (e) => {
+    pauseAutoScroll();
+    if (!dragging) return;
+    dragging = false;
+    trackWrap.classList.remove("is-dragging");
+    if (trackWrap.hasPointerCapture(e.pointerId)) trackWrap.releasePointerCapture(e.pointerId);
+  };
+  trackWrap.addEventListener("pointerup", endPointerInteraction);
+  trackWrap.addEventListener("pointercancel", endPointerInteraction);
+  trackWrap.addEventListener("wheel", () => pauseAutoScroll(), { passive: true });
+  trackWrap.addEventListener("keydown", (e) => {
+    if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) pauseAutoScroll();
+  });
+}
+
 async function loadNewsTicker() {
   if (newsLoaded) return;
   const token = getToken();
@@ -1227,19 +1278,15 @@ async function loadNewsTicker() {
       const isRecent = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000;
       const vendor = escapeHtml(n.vendor);
       const modelName = escapeHtml(stripVendorPrefix(n.model_name, n.vendor));
-      const recentBadge = isRecent ? '<span class="news-recent-badge">🆕 近7天</span>' : "";
+      const recentMark = isRecent ? '<span class="news-new-icon" title="近7天发布">⚡</span>' : "";
       const recentClass = isRecent ? " is-recent" : "";
-      return `<span class="item${recentClass}">${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b>${recentBadge} <span class="news-date">${escapeHtml(n.date)}</span></span>`;
+      return `<span class="item${recentClass}">${icon}${recentMark}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
     }).join("");
-    // 复制两份拼接，配合 translateX(-50%) 实现无缝循环滚动
+    // 复制两份内容供自动滚动循环，同时保留原生触屏/触控板横向滑动。
     track.innerHTML = buildItems() + buildItems();
+    const trackWrap = document.getElementById("news-track-wrap");
     document.getElementById("news-ticker").style.display = "flex";
-    // 根据内容宽度动态设置动画时长，保证滚动速度相对恒定
-    requestAnimationFrame(() => {
-      const singleWidth = track.scrollWidth / 2;
-      const duration = Math.max(15, singleWidth / 50); // 每秒约滚动50px
-      track.style.animationDuration = duration + "s";
-    });
+    startNewsTickerScroll(trackWrap, track);
     newsLoaded = true;
   } catch (e) {
     // 静默失败，不影响主看板
