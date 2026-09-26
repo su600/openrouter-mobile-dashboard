@@ -1278,7 +1278,7 @@ async function loadNewsTicker() {
       const isRecent = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000;
       const vendor = escapeHtml(n.vendor);
       const modelName = escapeHtml(stripVendorPrefix(n.model_name, n.vendor));
-      const recentMark = isRecent ? '<span class="news-new-icon" title="近7天发布">⚡</span>' : "";
+      const recentMark = isRecent ? '<span class="news-new-icon" title="近7天发布">🎉</span>' : "";
       const recentClass = isRecent ? " is-recent" : "";
       return `<span class="item${recentClass}">${recentMark}${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
     }).join("");
