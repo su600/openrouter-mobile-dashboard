@@ -1330,7 +1330,7 @@ const trendValueLabelsPlugin = {
     if (!values.length || !area) return;
 
     // 自适应抽样以免 30 天数据标签互相遮挡，同时始终标注最高值和最近一天。
-    const maxLabelCount = Math.max(5, Math.floor((area.right - area.left) / 38));
+    const maxLabelCount = Math.max(5, Math.floor((area.right - area.left) / 44));
     const step = Math.max(1, Math.ceil(values.length / maxLabelCount));
     const maxIndex = values.indexOf(Math.max(...values.map(Number)));
     const lastIndex = values.length - 1;
@@ -1342,7 +1342,7 @@ const trendValueLabelsPlugin = {
     const ctx = chart.ctx;
     const colors = getChartColors();
     ctx.save();
-    ctx.font = "600 14px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.font = "600 16px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.fillStyle = colors.text;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -1350,8 +1350,8 @@ const trendValueLabelsPlugin = {
       const point = meta.data[index];
       if (!point || values[index] == null || !Number.isFinite(Number(values[index]))) continue;
       const { x, y } = point.getProps(["x", "y"], true);
-      let labelY = y - 14;
-      if (labelY < area.top + 7) labelY = y + 16;
+      let labelY = y - 17;
+      if (labelY < area.top + 8) labelY = y + 19;
       if (labelY > area.bottom - 4) labelY = area.bottom - 4;
       ctx.fillText(formatTrendValueLabel(Number(values[index])), x, labelY);
     }
@@ -1425,7 +1425,7 @@ function render(data) {
         borderJoinStyle: "round",
         backgroundColor: "rgba(74,222,128,0.15)",
         fill: true,
-        tension: 0.3,
+        tension: 0.4,
         spanGaps: false,
         segment: { borderColor: "#4ade80" },
         pointRadius: 2,
