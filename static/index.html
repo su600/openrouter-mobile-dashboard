@@ -1314,6 +1314,51 @@ async function loadNewsTicker() {
   }
 }
 
+function formatTrendValueLabel(value) {
+  const abs = Math.abs(value);
+  const decimals = abs >= 100 ? 0 : abs >= 10 ? 1 : abs >= 1 ? 2 : abs >= 0.01 ? 2 : 3;
+  const symbol = currentCurrency === "CNY" ? "¥" : "$";
+  return symbol + Number(value).toFixed(decimals);
+}
+
+const trendValueLabelsPlugin = {
+  id: "trendValueLabels",
+  afterDatasetsDraw(chart) {
+    const values = chart.data.datasets[0]?.data || [];
+    const meta = chart.getDatasetMeta(0);
+    const area = chart.chartArea;
+    if (!values.length || !area) return;
+
+    // 自适应抽样以免 30 天数据标签互相遮挡，同时始终标注最高值和最近一天。
+    const maxLabelCount = Math.max(6, Math.floor((area.right - area.left) / 30));
+    const step = Math.max(1, Math.ceil(values.length / maxLabelCount));
+    const maxIndex = values.indexOf(Math.max(...values.map(Number)));
+    const lastIndex = values.length - 1;
+    const indices = new Set();
+    for (let i = 0; i < values.length; i += step) indices.add(i);
+    indices.add(maxIndex);
+    indices.add(lastIndex);
+
+    const ctx = chart.ctx;
+    const colors = getChartColors();
+    ctx.save();
+    ctx.font = "600 9px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillStyle = colors.text;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const index of [...indices].sort((a, b) => a - b)) {
+      const point = meta.data[index];
+      if (!point || values[index] == null || !Number.isFinite(Number(values[index]))) continue;
+      const { x, y } = point.getProps(["x", "y"], true);
+      let labelY = y - 10;
+      if (labelY < area.top + 5) labelY = y + 12;
+      if (labelY > area.bottom - 4) labelY = area.bottom - 4;
+      ctx.fillText(formatTrendValueLabel(Number(values[index])), x, labelY);
+    }
+    ctx.restore();
+  },
+};
+
 function render(data) {
   lastData = data;
   exchangeRate = (data.exchange_rate && data.exchange_rate.usd_to_cny) || 7.1;
@@ -1375,19 +1420,38 @@ function render(data) {
         label: `消费(${currencyLabel})`,
         data: values,
         borderColor: "#4ade80",
+        borderWidth: 2,
+        borderCapStyle: "round",
+        borderJoinStyle: "round",
         backgroundColor: "rgba(74,222,128,0.15)",
         fill: true,
         tension: 0.3,
         pointRadius: 2,
+        pointBackgroundColor: "#4ade80",
+        pointBorderColor: "#4ade80",
+        pointBorderWidth: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: "#4ade80",
+        pointHoverBorderColor: "#4ade80",
+        pointHoverBorderWidth: 1,
       }]
     },
+    plugins: [trendValueLabelsPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: chartColors.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: chartColors.grid } },
-        y: { ticks: { color: chartColors.text }, grid: { color: chartColors.grid } }
+        x: {
+          border: { display: false },
+          ticks: { color: chartColors.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+          grid: { color: chartColors.grid, drawTicks: false },
+        },
+        y: {
+          border: { display: false },
+          ticks: { color: chartColors.text },
+          grid: { color: chartColors.grid, drawTicks: false },
+        }
       }
     }
   });
