@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OpenRouter 账户看板</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#071326">
+<meta name="theme-color" content="#0f1117">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="OR看板">
@@ -15,33 +15,33 @@
 <style>
   * { box-sizing: border-box; }
   :root {
-    --bg: #071326;
-    --ambient-blue: rgba(20,94,207,0.40);
-    --ambient-cyan: rgba(31,112,216,0.19);
-    --ambient-violet: rgba(26,63,158,0.12);
-    --header-grad-1: rgba(15,57,119,0.04);
-    --header-grad-2: rgba(5,18,41,0.08);
+    --bg: #0f1117;
+    --ambient-blue: rgba(96,165,250,0.12);
+    --ambient-cyan: rgba(74,222,128,0.05);
+    --ambient-violet: rgba(99,115,190,0.04);
+    --header-grad-1: rgba(28,31,46,0.08);
+    --header-grad-2: rgba(18,20,29,0.12);
     --text: #e6e8ec;
     --text-strong: #ffffff;
     --text-muted: #8b8fa3;
     --text-faint: #6b7085;
-    --card-bg: rgba(13,42,86,0.01);
-    --card-bg-solid: #102344;
-    --card-border: rgba(132,180,255,0.34);
-    --glass-highlight: rgba(196,222,255,0.20);
-    --glass-sheen: linear-gradient(140deg, rgba(90,157,255,0.035), rgba(152,194,255,0.008) 48%, transparent 76%);
-    --section-accent: #b8d5ff;
+    --card-bg: rgba(26,29,41,0.01);
+    --card-bg-solid: #1a1d29;
+    --card-border: rgba(180,194,224,0.16);
+    --glass-highlight: rgba(255,255,255,0.11);
+    --glass-sheen: linear-gradient(140deg, rgba(180,198,230,0.04), rgba(255,255,255,0.01) 48%, transparent 76%);
+    --section-accent: #8eafff;
     --glass-blur: 34px;
-    --card-shadow: 0 6px 20px rgba(0,0,0,0.30), 0 0 26px rgba(36,126,255,0.08), inset 0 1px 0 var(--glass-highlight);
-    --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), 0 0 30px rgba(36,126,255,0.13), inset 0 1px 0 var(--glass-highlight);
-    --divider: rgba(138,181,235,0.18);
-    --input-bg: rgba(9,25,49,0.82);
-    --input-border: rgba(132,179,235,0.30);
-    --chip-bg: rgba(102,152,220,0.14);
-    --chip-border: rgba(132,179,235,0.28);
+    --card-shadow: 0 6px 20px rgba(0,0,0,0.30), 0 0 26px rgba(96,165,250,0.035), inset 0 1px 0 var(--glass-highlight);
+    --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), 0 0 30px rgba(96,165,250,0.06), inset 0 1px 0 var(--glass-highlight);
+    --divider: #262a3a;
+    --input-bg: rgba(26,29,41,0.82);
+    --input-border: #2a2e3f;
+    --chip-bg: rgba(42,46,63,0.25);
+    --chip-border: #3a3f55;
     --accent: #4ade80;
     --accent-strong: #22c55e;
-    --accent-contrast: #071326;
+    --accent-contrast: #0f1117;
     --blue: #60a5fa;
     --warn: #ffb347;
     --danger: #ff6b6b;
@@ -1158,7 +1158,7 @@ function applyTheme(theme) {
   const themeBtn = document.getElementById("theme-btn");
   if (themeBtn) themeBtn.innerText = theme === "light" ? "☀️" : "🌙";
   const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#f3f5f9" : "#071326");
+  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#f3f5f9" : "#0f1117");
 }
 
 function toggleTheme() {
