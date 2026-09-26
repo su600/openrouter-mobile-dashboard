@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OpenRouter 账户看板</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0f1117">
+<meta name="theme-color" content="#091321">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="OR看板">
@@ -15,31 +15,33 @@
 <style>
   * { box-sizing: border-box; }
   :root {
-    --bg: #0f1117;
-    --ambient-blue: rgba(96,165,250,0.14);
-    --ambient-green: rgba(74,222,128,0.09);
-    --header-grad-1: rgba(28,31,46,0.82);
-    --header-grad-2: rgba(18,20,29,0.76);
+    --bg: #091321;
+    --ambient-blue: rgba(36,126,255,0.28);
+    --ambient-cyan: rgba(38,181,255,0.18);
+    --ambient-violet: rgba(91,105,231,0.13);
+    --header-grad-1: rgba(19,70,138,0.68);
+    --header-grad-2: rgba(7,20,45,0.78);
     --text: #e6e8ec;
     --text-strong: #ffffff;
     --text-muted: #8b8fa3;
     --text-faint: #6b7085;
-    --card-bg: rgba(31,34,46,0.76);
-    --card-bg-solid: #1f222e;
-    --card-border: rgba(180,194,224,0.16);
-    --glass-highlight: rgba(255,255,255,0.055);
-    --section-accent: #8eafff;
-    --glass-blur: 20px;
-    --card-shadow: 0 4px 16px rgba(0,0,0,0.28), inset 0 1px 0 var(--glass-highlight);
-    --card-shadow-hover: 0 8px 22px rgba(0,0,0,0.34), inset 0 1px 0 var(--glass-highlight);
-    --divider: #262a3a;
-    --input-bg: #1a1d29;
-    --input-border: #2a2e3f;
-    --chip-bg: #2a2e3f;
-    --chip-border: #3a3f55;
+    --card-bg: rgba(22,55,101,0.56);
+    --card-bg-solid: #142844;
+    --card-border: rgba(151,194,255,0.25);
+    --glass-highlight: rgba(220,239,255,0.14);
+    --glass-sheen: linear-gradient(140deg, rgba(122,185,255,0.12), rgba(255,255,255,0.025) 48%, transparent 76%);
+    --section-accent: #a9ccff;
+    --glass-blur: 24px;
+    --card-shadow: 0 6px 20px rgba(0,0,0,0.30), 0 0 26px rgba(36,126,255,0.08), inset 0 1px 0 var(--glass-highlight);
+    --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), 0 0 30px rgba(36,126,255,0.13), inset 0 1px 0 var(--glass-highlight);
+    --divider: rgba(138,181,235,0.18);
+    --input-bg: rgba(9,25,49,0.82);
+    --input-border: rgba(132,179,235,0.30);
+    --chip-bg: rgba(102,152,220,0.14);
+    --chip-border: rgba(132,179,235,0.28);
     --accent: #4ade80;
     --accent-strong: #22c55e;
-    --accent-contrast: #0f1117;
+    --accent-contrast: #091321;
     --blue: #60a5fa;
     --warn: #ffb347;
     --danger: #ff6b6b;
@@ -47,7 +49,8 @@
   html[data-theme="light"] {
     --bg: #f3f5f9;
     --ambient-blue: rgba(96,165,250,0.10);
-    --ambient-green: rgba(34,197,94,0.07);
+    --ambient-cyan: rgba(56,189,248,0.07);
+    --ambient-violet: rgba(99,102,241,0.045);
     --header-grad-1: rgba(255,255,255,0.84);
     --header-grad-2: rgba(238,241,247,0.78);
     --text: #232733;
@@ -58,6 +61,7 @@
     --card-bg-solid: #ffffff;
     --card-border: rgba(174,184,204,0.48);
     --glass-highlight: rgba(255,255,255,0.88);
+    --glass-sheen: linear-gradient(140deg, rgba(255,255,255,0.72), rgba(240,246,255,0.18) 48%, transparent 76%);
     --section-accent: #3769c8;
     --card-shadow: 0 4px 14px rgba(30,34,50,0.08), inset 0 1px 0 var(--glass-highlight);
     --card-shadow-hover: 0 8px 20px rgba(30,34,50,0.12), inset 0 1px 0 var(--glass-highlight);
@@ -77,8 +81,9 @@
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
     background:
-      radial-gradient(ellipse at 8% 0%, var(--ambient-blue), transparent 42%),
-      radial-gradient(ellipse at 92% 28%, var(--ambient-green), transparent 38%),
+      radial-gradient(ellipse at 14% 8%, var(--ambient-blue), transparent 43%),
+      radial-gradient(ellipse at 88% 32%, var(--ambient-cyan), transparent 42%),
+      radial-gradient(ellipse at 48% 100%, var(--ambient-violet), transparent 44%),
       var(--bg);
     color: var(--text);
     padding-bottom: 40px;
@@ -149,7 +154,7 @@
     .stat-item .val { font-size: 26px; line-height: 32px; height: 32px; }
   }
   .card {
-    background: var(--card-bg);
+    background: var(--glass-sheen), var(--card-bg);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     border: 1px solid var(--card-border);
@@ -219,7 +224,7 @@
   }
   .modal-overlay.show { display: flex; }
   .modal-box {
-    background: var(--card-bg);
+    background: var(--glass-sheen), var(--card-bg);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(145%);
     backdrop-filter: blur(var(--glass-blur)) saturate(145%);
     border: 1px solid var(--card-border);
@@ -476,7 +481,7 @@
     margin: 80px auto;
     padding: 24px;
     text-align: center;
-    background: var(--card-bg);
+    background: var(--glass-sheen), var(--card-bg);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     border: 1px solid var(--card-border);
@@ -698,7 +703,7 @@
 
   /* 新模型发布新闻满满终 */
   .news-ticker {
-    background: var(--card-bg);
+    background: var(--glass-sheen), var(--card-bg);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     border: 1px solid var(--card-border);
@@ -1153,7 +1158,7 @@ function applyTheme(theme) {
   const themeBtn = document.getElementById("theme-btn");
   if (themeBtn) themeBtn.innerText = theme === "light" ? "☀️" : "🌙";
   const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#f3f5f9" : "#0f1117");
+  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#f3f5f9" : "#091321");
 }
 
 function toggleTheme() {
