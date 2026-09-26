@@ -1219,7 +1219,7 @@ function startNewsTickerScroll(trackWrap, track) {
   let dragging = false;
   let dragStartX = 0;
   let dragStartScroll = 0;
-  const pauseAutoScroll = (ms = 2200) => { pausedUntil = performance.now() + ms; };
+  const pauseAutoScroll = (ms = 1000) => { pausedUntil = performance.now() + ms; };
 
   const animate = (now) => {
     const elapsed = lastFrame ? Math.min(now - lastFrame, 100) : 0;
@@ -1280,7 +1280,7 @@ async function loadNewsTicker() {
       const modelName = escapeHtml(stripVendorPrefix(n.model_name, n.vendor));
       const recentMark = isRecent ? '<span class="news-new-icon" title="近7天发布">⚡</span>' : "";
       const recentClass = isRecent ? " is-recent" : "";
-      return `<span class="item${recentClass}">${icon}${recentMark}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
+      return `<span class="item${recentClass}">${recentMark}${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
     }).join("");
     // 复制两份内容供自动滚动循环，同时保留原生触屏/触控板横向滑动。
     track.innerHTML = buildItems() + buildItems();
