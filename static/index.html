@@ -1423,9 +1423,9 @@ function render(data) {
         borderWidth: 2,
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        backgroundColor: "rgba(74,222,128,0.15)",
-        fill: true,
-        tension: 0.3,
+        fill: false,
+        tension: 0.25,
+        spanGaps: false,
         pointRadius: 2,
         pointBackgroundColor: "#4ade80",
         pointBorderColor: "#4ade80",
@@ -1440,6 +1440,7 @@ function render(data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       plugins: { legend: { display: false } },
       scales: {
         x: {
