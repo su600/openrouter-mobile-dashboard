@@ -16,22 +16,22 @@
   * { box-sizing: border-box; }
   :root {
     --bg: #091321;
-    --ambient-blue: rgba(36,126,255,0.28);
-    --ambient-cyan: rgba(38,181,255,0.18);
-    --ambient-violet: rgba(91,105,231,0.13);
-    --header-grad-1: rgba(19,70,138,0.68);
-    --header-grad-2: rgba(7,20,45,0.78);
+    --ambient-blue: rgba(36,126,255,0.36);
+    --ambient-cyan: rgba(38,181,255,0.25);
+    --ambient-violet: rgba(91,105,231,0.18);
+    --header-grad-1: rgba(19,70,138,0.50);
+    --header-grad-2: rgba(7,20,45,0.64);
     --text: #e6e8ec;
     --text-strong: #ffffff;
     --text-muted: #8b8fa3;
     --text-faint: #6b7085;
-    --card-bg: rgba(22,55,101,0.56);
+    --card-bg: rgba(22,55,101,0.40);
     --card-bg-solid: #142844;
-    --card-border: rgba(151,194,255,0.25);
-    --glass-highlight: rgba(220,239,255,0.14);
-    --glass-sheen: linear-gradient(140deg, rgba(122,185,255,0.12), rgba(255,255,255,0.025) 48%, transparent 76%);
-    --section-accent: #a9ccff;
-    --glass-blur: 24px;
+    --card-border: rgba(151,194,255,0.36);
+    --glass-highlight: rgba(220,239,255,0.23);
+    --glass-sheen: linear-gradient(140deg, rgba(122,185,255,0.20), rgba(255,255,255,0.055) 48%, transparent 76%);
+    --section-accent: #b8d5ff;
+    --glass-blur: 30px;
     --card-shadow: 0 6px 20px rgba(0,0,0,0.30), 0 0 26px rgba(36,126,255,0.08), inset 0 1px 0 var(--glass-highlight);
     --card-shadow-hover: 0 10px 26px rgba(0,0,0,0.36), 0 0 30px rgba(36,126,255,0.13), inset 0 1px 0 var(--glass-highlight);
     --divider: rgba(138,181,235,0.18);
@@ -92,8 +92,8 @@
   header {
     padding: 20px 16px 12px;
     background: linear-gradient(135deg, var(--header-grad-1), var(--header-grad-2));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(170%);
     border-bottom: 1px solid var(--card-border);
     position: sticky;
     top: 0;
@@ -155,8 +155,8 @@
   }
   .card {
     background: var(--glass-sheen), var(--card-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(165%);
     border: 1px solid var(--card-border);
     border-radius: 18px;
     padding: 16px;
@@ -225,8 +225,8 @@
   .modal-overlay.show { display: flex; }
   .modal-box {
     background: var(--glass-sheen), var(--card-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(145%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(145%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(165%);
     border: 1px solid var(--card-border);
     border-radius: 18px;
     width: 100%;
@@ -482,8 +482,8 @@
     padding: 24px;
     text-align: center;
     background: var(--glass-sheen), var(--card-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(165%);
     border: 1px solid var(--card-border);
     border-radius: 20px;
     box-shadow: var(--card-shadow);
@@ -704,8 +704,8 @@
   /* 新模型发布新闻满满终 */
   .news-ticker {
     background: var(--glass-sheen), var(--card-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(165%);
     border: 1px solid var(--card-border);
     border-radius: 18px;
     margin-bottom: 0;
