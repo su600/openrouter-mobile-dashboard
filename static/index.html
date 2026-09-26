@@ -737,6 +737,19 @@
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+  .news-ticker .track .news-model-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .news-ticker .track .news-model-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .news-ticker .track .news-model-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
   .news-ticker .track span.item .news-new-icon {
     color: var(--warn);
     font-size: 15px;
@@ -1282,9 +1295,13 @@ async function loadNewsTicker() {
       const isRecent = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000;
       const vendor = escapeHtml(n.vendor);
       const modelName = escapeHtml(stripVendorPrefix(n.model_name, n.vendor));
+      const modelUrl = openRouterModelUrl(n.model_id);
+      const modelNameContent = modelUrl
+        ? `<a class="news-model-link" href="${escapeHtml(modelUrl)}" target="_blank" rel="noopener noreferrer" title="在 OpenRouter 查看此模型">${modelName}</a>`
+        : modelName;
       const recentMark = isRecent ? '<span class="news-new-icon" title="近7天发布">🎉</span>' : "";
       const recentClass = isRecent ? " is-recent" : "";
-      return `<span class="item${recentClass}">${recentMark}${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelName}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
+      return `<span class="item${recentClass}">${recentMark}${icon}<b>${vendor}</b> 发布 <b class="model-name${recentClass}">${modelNameContent}</b> <span class="news-date">${escapeHtml(n.date)}</span></span>`;
     }).join("");
     // 复制两份内容供自动滚动循环，同时保留原生触屏/触控板横向滑动。
     track.innerHTML = buildItems() + buildItems();
