@@ -16,14 +16,18 @@
   * { box-sizing: border-box; }
   :root {
     --bg: #0f1117;
-    --header-grad-1: #1c1f2e;
-    --header-grad-2: #12141d;
+    --ambient-blue: rgba(96,165,250,0.10);
+    --ambient-green: rgba(74,222,128,0.07);
+    --header-grad-1: rgba(28,31,46,0.82);
+    --header-grad-2: rgba(18,20,29,0.76);
     --text: #e6e8ec;
     --text-strong: #ffffff;
     --text-muted: #8b8fa3;
     --text-faint: #6b7085;
-    --card-bg: #1a1d29;
-    --card-border: transparent;
+    --card-bg: rgba(26,29,41,0.68);
+    --card-bg-solid: #1a1d29;
+    --card-border: rgba(255,255,255,0.09);
+    --glass-blur: 18px;
     --card-shadow: 0 2px 10px rgba(0,0,0,0.28);
     --card-shadow-hover: 0 6px 18px rgba(0,0,0,0.34);
     --divider: #262a3a;
@@ -40,14 +44,17 @@
   }
   html[data-theme="light"] {
     --bg: #f3f5f9;
-    --header-grad-1: #ffffff;
-    --header-grad-2: #eef1f7;
+    --ambient-blue: rgba(96,165,250,0.10);
+    --ambient-green: rgba(34,197,94,0.07);
+    --header-grad-1: rgba(255,255,255,0.84);
+    --header-grad-2: rgba(238,241,247,0.78);
     --text: #232733;
     --text-strong: #12141d;
     --text-muted: #6b7180;
     --text-faint: #8a90a0;
-    --card-bg: #ffffff;
-    --card-border: #e7e9f0;
+    --card-bg: rgba(255,255,255,0.76);
+    --card-bg-solid: #ffffff;
+    --card-border: rgba(255,255,255,0.78);
     --card-shadow: 0 2px 10px rgba(30,34,50,0.06);
     --card-shadow-hover: 0 8px 20px rgba(30,34,50,0.10);
     --divider: #edeff5;
@@ -65,7 +72,10 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-    background: var(--bg);
+    background:
+      radial-gradient(ellipse at 8% 0%, var(--ambient-blue), transparent 42%),
+      radial-gradient(ellipse at 92% 28%, var(--ambient-green), transparent 38%),
+      var(--bg);
     color: var(--text);
     padding-bottom: 40px;
     transition: background 0.25s ease, color 0.25s ease;
@@ -73,6 +83,9 @@
   header {
     padding: 20px 16px 12px;
     background: linear-gradient(135deg, var(--header-grad-1), var(--header-grad-2));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border-bottom: 1px solid var(--card-border);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -133,6 +146,8 @@
   }
   .card {
     background: var(--card-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     border: 1px solid var(--card-border);
     border-radius: 14px;
     padding: 16px;
@@ -200,6 +215,8 @@
   .modal-overlay.show { display: flex; }
   .modal-box {
     background: var(--card-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(145%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(145%);
     border: 1px solid var(--card-border);
     border-radius: 12px;
     width: 100%;
@@ -451,7 +468,14 @@
   .login-box {
     max-width: 320px;
     margin: 80px auto;
+    padding: 24px;
     text-align: center;
+    background: var(--card-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    box-shadow: var(--card-shadow);
   }
   .login-box input {
     width: 100%;
@@ -669,6 +693,8 @@
   /* 新模型发布新闻满满终 */
   .news-ticker {
     background: var(--card-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
     border: 1px solid var(--card-border);
     border-radius: 14px;
     margin-bottom: 0;
@@ -911,6 +937,9 @@
       animation: none !important;
       transition: none !important;
     }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    header, .card, .news-ticker, .modal-box, .login-box { background: var(--card-bg-solid); }
   }
 </style>
 </head>
