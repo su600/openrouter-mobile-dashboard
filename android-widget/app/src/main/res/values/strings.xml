@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">OpenRouter 账户看板</string>
     <string name="widget_name">OpenRouter 账户小组件</string>
-    <string name="widget_description">余额、累计消费、本月消费和今日 UTC 消费</string>
+    <string name="widget_description">余额、消费及 Codex、Claude、Pi 近 30 天用量</string>
     <string name="widget_overview_title">账户余额概览</string>
     <string name="widget_setup_prompt">未连接</string>
     <string name="widget_topup">💳 一键充值</string>
@@ -13,5 +13,6 @@
     <string name="widget_total_label">累计消费 (CNY)</string>
     <string name="widget_month_label">本月累计消费 (CNY)</string>
     <string name="widget_today_label">今日消费 · UTC (CNY)</string>
+    <string name="widget_apps_placeholder">近30天 Codex — · Claude — · Pi —</string>
     <string name="widget_dash">—</string>
 </resources>

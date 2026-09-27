@@ -48,6 +48,12 @@ class TestWidgetRoutes(unittest.TestCase):
                 "exchange_rate": {"usd_to_cny": 7.1},
                 "daily_series": [{"date": "2026-09-27", "usage": 2}],
                 "model_ranking": [{"model": "secret-model-detail"}],
+                "app_ranking": [
+                    {"app": "Codex", "usage": 1.2},
+                    {"app": "Claude Code", "usage": 2.3},
+                    {"app": "Pi Coding Agent", "usage": 3.4},
+                    {"app": "Unrequested App", "usage": 99.0},
+                ],
             }),
         ]
         for item in self.patches:
@@ -117,6 +123,10 @@ class TestWidgetRoutes(unittest.TestCase):
         self.assertEqual(response["account"]["today_usage"], 2.0)
         self.assertNotIn("total_credits", response["account"])
         self.assertEqual(response["access_status"]["source"], "user_reported")
+        self.assertEqual(
+            [(app["name"], app["usage"]) for app in response["apps_last_30_days"]],
+            [("Pi", 3.4), ("Claude", 2.3), ("Codex", 1.2)],
+        )
         self.assertNotIn("key_masked", response)
         self.assertNotIn("key_info", response)
         self.assertNotIn("daily_series", response)

@@ -28,8 +28,19 @@ final class WidgetApi {
         @Override public String toString() { return name; }
     }
 
+    static final class AppUsage {
+        final String name;
+        final double usage;
+
+        AppUsage(String name, double usage) {
+            this.name = name;
+            this.usage = usage;
+        }
+    }
+
     static final class Summary {
         String accountName;
+        final List<AppUsage> appsLast30Days = new ArrayList<>();
         double remaining = Double.NaN;
         double totalUsage = Double.NaN;
         double today = Double.NaN;
@@ -73,6 +84,14 @@ final class WidgetApi {
         }
         JSONObject rate = json.optJSONObject("exchange_rate");
         if (rate != null) result.usdToCny = rate.optDouble("usd_to_cny", 7.1);
+        JSONArray apps = json.optJSONArray("apps_last_30_days");
+        if (apps != null) {
+            for (int i = 0; i < apps.length(); i++) {
+                JSONObject app = apps.optJSONObject(i);
+                if (app != null) result.appsLast30Days.add(
+                        new AppUsage(app.optString("name", ""), number(app, "usage")));
+            }
+        }
         return result;
     }
 

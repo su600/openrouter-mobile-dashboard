@@ -27,6 +27,41 @@ import widget_auth
 logger = get_logger(__name__)
 
 
+_WIDGET_APP_LABELS = {"codex": "Codex", "claude": "Claude", "pi": "Pi"}
+
+
+def _widget_app_usage(rows):
+    """Expose only the requested three app totals for the trailing 30-day ranking."""
+    totals = {key: 0.0 for key in _WIDGET_APP_LABELS}
+    if not isinstance(rows, list) or not rows:
+        return [{"name": label, "usage": None} for key, label in _WIDGET_APP_LABELS.items()]
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        raw_name = str(row.get("app") or "").lower()
+        normalized = "".join(character for character in raw_name if character.isalnum())
+        if "codex" in normalized:
+            key = "codex"
+        elif "claude" in normalized:
+            key = "claude"
+        elif normalized in ("pi", "piagent", "picodingagent") or normalized.startswith("picodingagent"):
+            key = "pi"
+        else:
+            continue
+        try:
+            totals[key] += float(row.get("usage") or 0.0)
+        except (TypeError, ValueError):
+            continue
+
+    result = [
+        {"name": _WIDGET_APP_LABELS[key], "usage": round(totals[key], 4)}
+        for key in _WIDGET_APP_LABELS
+    ]
+    result.sort(key=lambda item: (-item["usage"], item["name"]))
+    return result
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # 静默访问日志，避免刷屏（异常另有 logger 记录）
@@ -146,6 +181,7 @@ class Handler(BaseHTTPRequestHandler):
                             "month_usage": summary.get("account", {}).get("month_usage"),
                         },
                         "exchange_rate": summary.get("exchange_rate", {}),
+                        "apps_last_30_days": _widget_app_usage(summary.get("app_ranking")),
                     },
                     cache_control="no-store",
                 )

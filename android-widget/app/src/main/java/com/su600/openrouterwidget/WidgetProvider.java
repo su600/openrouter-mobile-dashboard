@@ -17,6 +17,8 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -103,6 +105,8 @@ public class WidgetProvider extends AppWidgetProvider {
                         formatCny(summary.month, summary.usdToCny, 2));
                 views.setTextViewText(R.id.widget_today,
                         formatCny(summary.today, summary.usdToCny, 4));
+                views.setTextViewText(R.id.widget_apps_usage,
+                        formatApps(summary.appsLast30Days, summary.usdToCny));
             } else {
                 views.setTextViewText(R.id.widget_title, errorTitle(error));
                 views.setTextViewText(R.id.widget_account_name, "点卡片检查设置");
@@ -110,9 +114,27 @@ public class WidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(R.id.widget_total_usage, "—");
                 views.setTextViewText(R.id.widget_month, "—");
                 views.setTextViewText(R.id.widget_today, "—");
+                views.setTextViewText(R.id.widget_apps_usage, "近30天用量暂不可用");
             }
             manager.updateAppWidget(id, views);
         }
+    }
+
+    private static String formatApps(List<WidgetApi.AppUsage> apps, double rate) {
+        if (apps == null || apps.isEmpty()) return "近30天 Codex — · Claude — · Pi —";
+        List<WidgetApi.AppUsage> sorted = new ArrayList<>(apps);
+        sorted.sort((left, right) -> Double.compare(appUsage(right.usage), appUsage(left.usage)));
+        StringBuilder line = new StringBuilder("近30天 ");
+        for (int i = 0; i < sorted.size(); i++) {
+            if (i > 0) line.append(" · ");
+            WidgetApi.AppUsage app = sorted.get(i);
+            line.append(app.name).append(' ').append(formatCny(app.usage, rate, 1));
+        }
+        return line.toString();
+    }
+
+    private static double appUsage(double value) {
+        return Double.isNaN(value) || Double.isInfinite(value) ? Double.NEGATIVE_INFINITY : value;
     }
 
     private static String errorTitle(String error) {
