@@ -154,7 +154,7 @@ sudo systemctl enable --now or-dashboard.service
 
 `android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。小组件初始目标为 4 列×2 行：支持 cell sizing 的启动器按格数布局，旧版启动器使用 dp 尺寸回退；允许横向拉伸，但垂直高度锁定为 2 行。小组件展示余额、累计消费、本月消费与 UTC 今日消费，金额字号提升至 30sp，主体在卡片内垂直居中。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与小组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.17](android-widget/releases/openrouter-account-widget-v1.0.17.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`c63c886c7292f28ee90daeab75bbe438e581f9996105a32af717caf258002eb5`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.17](android-widget/releases/openrouter-account-widget-v1.0.17.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`ade307014a9ebe0047e3087e341d420d22cf8e491bd6d755887b2714aca3cbd7`。
 
 从源码构建：
 

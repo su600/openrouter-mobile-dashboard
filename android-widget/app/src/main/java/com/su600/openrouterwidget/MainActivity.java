@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         if (readCredentials()) {
+            WidgetProvider.refreshAll(this);
             buildWebView();
             loadDashboard();
         } else {
