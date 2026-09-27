@@ -41,6 +41,13 @@ final class SecretStore {
         return readSecret(context, DASHBOARD_IV_KEY, DASHBOARD_DATA_KEY);
     }
 
+    static void clearDashboardToken(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .remove(DASHBOARD_IV_KEY)
+                .remove(DASHBOARD_DATA_KEY)
+                .commit();
+    }
+
     private static void saveSecret(Context context, String ivKey, String dataKey, String value) throws Exception {
         if (value == null || value.isEmpty()) return;
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");

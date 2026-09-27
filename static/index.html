@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="OR看板">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" href="/icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/vendor/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   :root {
@@ -1156,13 +1156,32 @@
 const TOKEN_KEY = "or_dashboard_token";
 
 function getToken() {
+  const nativeBridge = window.AndroidDashboard;
+  if (nativeBridge && typeof nativeBridge.getToken === "function") {
+    const nativeToken = nativeBridge.getToken();
+    if (nativeToken) return nativeToken;
+  }
   return localStorage.getItem(TOKEN_KEY);
+}
+
+function clearToken() {
+  const nativeBridge = window.AndroidDashboard;
+  if (nativeBridge && typeof nativeBridge.clearToken === "function") nativeBridge.clearToken();
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 function saveTokenAndLoad() {
   const t = document.getElementById("token-input").value.trim();
   if (!t) return;
-  localStorage.setItem(TOKEN_KEY, t);
+  const nativeBridge = window.AndroidDashboard;
+  if (nativeBridge && typeof nativeBridge.saveToken === "function") {
+    if (!nativeBridge.saveToken(t)) {
+      alert("无法安全保存访问口令，请打开 App 设置后重试");
+      return;
+    }
+  } else {
+    localStorage.setItem(TOKEN_KEY, t);
+  }
   init();
 }
 
@@ -1229,7 +1248,7 @@ async function loadData() {
   try {
     const resp = await fetch(`/api/summary?token=${encodeURIComponent(token)}${getAccountParam()}`);
     if (resp.status === 401) {
-      localStorage.removeItem(TOKEN_KEY);
+      clearToken();
       showLogin();
       return;
     }

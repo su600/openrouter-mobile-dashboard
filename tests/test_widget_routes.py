@@ -77,6 +77,15 @@ class TestWidgetRoutes(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read().decode("utf-8"))
 
+    def test_local_chart_bundle_is_served_with_cache_header(self):
+        request = urllib.request.Request(self.base + "/vendor/chart.umd.min.js")
+        with urllib.request.urlopen(request, timeout=3) as response:
+            body = response.read()
+            self.assertEqual(response.status, 200)
+            self.assertIn("javascript", response.headers.get("Content-Type", ""))
+            self.assertEqual(response.headers.get("Cache-Control"), "public, max-age=86400")
+            self.assertGreater(len(body), 100_000)
+
     def test_session_requires_dashboard_token_and_returns_scoped_token(self):
         status, _ = self.request("/api/widget/session", method="POST")
         self.assertEqual(status, 401)

@@ -1,8 +1,8 @@
 # OpenRouter Android app and home-screen widget
 
-The Android app opens the existing responsive dashboard in a WebView and bundles its native home-screen widget. The app icon and widget use the same logo. The widget follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), with a fixed 5-column × 2-row target on launchers that support cell sizing (dp fallback elsewhere); vertical resizing is disabled. It shows remaining balance, cumulative spend, monthly spend, and UTC today's spend. Static fee guidance is omitted; a connection diagnostic appears only when refresh fails.
+The Android app opens the existing responsive dashboard in a WebView and bundles its native home-screen widget. The app icon and widget use the same logo. The widget follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), with a fixed 4-column × 2-row target on launchers that support cell sizing (dp fallback elsewhere); vertical resizing is disabled. It shows remaining balance, cumulative spend, monthly spend, and UTC today's spend. Static fee guidance is omitted; a connection diagnostic appears only when refresh fails. The dashboard uses a locally served Chart.js bundle, avoiding a blocking CDN fetch at startup.
 
-**Prebuilt APK v1.0.11:** [Download](releases/openrouter-account-widget-v1.0.11.apk). This debug-signed APK is for direct installation, not Google Play distribution.
+**Prebuilt APK v1.0.12:** [Download](releases/openrouter-account-widget-v1.0.12.apk). This debug-signed APK is for direct installation, not Google Play distribution.
 
 ## Setup
 
@@ -12,7 +12,7 @@ The Android app opens the existing responsive dashboard in a WebView and bundles
 4. Add **OpenRouter 账户小组件** from Android's home-screen widget picker. Tap the card data or title to return to the app.
 5. Tap **刷新** for an immediate refresh. The button starts a dedicated refresh activity and WorkManager job; periodic work is requested every 30 minutes, though Android may defer it.
 
-The dashboard password and read-only token are encrypted at rest with Android Keystore; the WebView's localStorage copy of the login token is cleared when the app backgrounds. The APK contains no embedded dashboard/OpenRouter credentials. Use HTTPS or a trusted VPN when setting up remotely; avoid sending the dashboard password over public HTTP.
+The dashboard password and read-only token are encrypted at rest with Android Keystore. A restricted JavaScript bridge supplies the in-memory dashboard token to the trusted WebView; it is not stored in WebView localStorage, so background resume keeps the page state. The APK contains no embedded dashboard/OpenRouter credentials. Use HTTPS or a trusted VPN when setting up remotely; avoid sending the dashboard password over public HTTP.
 
 ## Build
 

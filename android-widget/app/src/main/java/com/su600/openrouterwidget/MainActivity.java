@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -25,8 +26,6 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import org.json.JSONObject;
-
 public class MainActivity extends Activity {
     private static final int REQUEST_SETTINGS = 710;
     private static final int PAGE_BG = Color.rgb(15, 17, 23);
@@ -36,11 +35,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ProgressBar progressBar;
     private String dashboardUrl;
-    private String dashboardToken;
-    private boolean tokenInjected;
-    private boolean tokenInjectionPending;
+    private volatile String dashboardToken;
     private boolean settingsOpen;
-    private boolean reloadAfterResume;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -85,6 +81,7 @@ public class MainActivity extends Activity {
 
         webView = new WebView(this);
         webView.setBackgroundColor(PAGE_BG);
+        webView.setAlpha(0f);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -94,6 +91,7 @@ public class MainActivity extends Activity {
         settings.setSupportMultipleWindows(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        webView.addJavascriptInterface(new NativeDashboardBridge(), "AndroidDashboard");
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
@@ -125,7 +123,8 @@ public class MainActivity extends Activity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view, int progress) {
-                progressBar.setVisibility(progress < 100 ? View.VISIBLE : View.GONE);
+                if (progress < 100) progressBar.setVisibility(View.VISIBLE);
+                else revealDashboard();
             }
         });
         webView.setWebViewClient(new WebViewClient() {
@@ -135,16 +134,16 @@ public class MainActivity extends Activity {
 
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                if (progressBar != null) progressBar.setVisibility(View.GONE);
-                if (isDashboardOrigin(Uri.parse(url)) && !tokenInjected && !tokenInjectionPending) {
-                    injectDashboardToken();
+                if (isDashboardOrigin(Uri.parse(url))) {
+                    view.evaluateJavascript("localStorage.removeItem('or_dashboard_token');", null);
+                    revealDashboard();
                 }
             }
 
             @Override public void onReceivedError(WebView view, WebResourceRequest request,
                                                   android.webkit.WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    if (progressBar != null) progressBar.setVisibility(View.GONE);
+                    revealDashboard();
                     Toast.makeText(MainActivity.this, "看板加载失败：" + error.getDescription(),
                             Toast.LENGTH_LONG).show();
                 }
@@ -153,6 +152,7 @@ public class MainActivity extends Activity {
             @Override public void onReceivedSslError(WebView view, SslErrorHandler handler,
                                                      android.net.http.SslError error) {
                 handler.cancel();
+                revealDashboard();
                 Toast.makeText(MainActivity.this, "看板 HTTPS 证书验证失败", Toast.LENGTH_LONG).show();
             }
         });
@@ -190,22 +190,17 @@ public class MainActivity extends Activity {
             openSettings();
             return;
         }
-        tokenInjected = false;
-        tokenInjectionPending = false;
+        webView.animate().cancel();
+        webView.setAlpha(0f);
+        progressBar.setVisibility(View.VISIBLE);
         webView.loadUrl(dashboardUrl);
     }
 
-    private void injectDashboardToken() {
-        tokenInjectionPending = true;
-        String script = "(function(){var key='or_dashboard_token';var token="
-                + JSONObject.quote(dashboardToken)
-                + ";if(localStorage.getItem(key)!==token){localStorage.setItem(key,token);"
-                + "if(typeof init==='function')init();}})();";
-        webView.evaluateJavascript(script, result -> {
-            tokenInjectionPending = false;
-            tokenInjected = true;
-            if (progressBar != null) progressBar.setVisibility(View.GONE);
-        });
+    private void revealDashboard() {
+        if (progressBar != null) progressBar.setVisibility(View.GONE);
+        if (webView != null && webView.getAlpha() < 1f) {
+            webView.animate().alpha(1f).setDuration(180).start();
+        }
     }
 
     private void openSettings() {
@@ -218,7 +213,6 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_SETTINGS) return;
         settingsOpen = false;
-        reloadAfterResume = false;
         if (readCredentials()) {
             if (webView == null) buildWebView();
             loadDashboard();
@@ -230,13 +224,7 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onPause() {
-        if (webView != null) {
-            webView.evaluateJavascript("localStorage.removeItem('or_dashboard_token');", null);
-            webView.onPause();
-            tokenInjected = false;
-            tokenInjectionPending = false;
-            reloadAfterResume = true;
-        }
+        if (webView != null) webView.onPause();
         super.onPause();
     }
 
@@ -244,10 +232,8 @@ public class MainActivity extends Activity {
         super.onResume();
         if (webView != null) {
             webView.onResume();
-            if (reloadAfterResume && !settingsOpen) {
-                reloadAfterResume = false;
-                loadDashboard();
-            }
+            webView.evaluateJavascript(
+                    "if(typeof loadData==='function'){loadData();startAutoRefresh();}", null);
         }
     }
 
@@ -263,6 +249,29 @@ public class MainActivity extends Activity {
             webView = null;
         }
         super.onDestroy();
+    }
+
+    private final class NativeDashboardBridge {
+        @JavascriptInterface public String getToken() {
+            return dashboardToken == null ? "" : dashboardToken;
+        }
+
+        @JavascriptInterface public boolean saveToken(String token) {
+            if (token == null || token.trim().isEmpty()) return false;
+            String cleaned = token.trim();
+            try {
+                SecretStore.saveDashboardToken(MainActivity.this, cleaned);
+                dashboardToken = cleaned;
+                return true;
+            } catch (Exception error) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface public void clearToken() {
+            SecretStore.clearDashboardToken(MainActivity.this);
+            dashboardToken = "";
+        }
     }
 
     private GradientDrawable roundButton() {

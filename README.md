@@ -37,7 +37,7 @@
 - ⚡ **性能优化**：后端**全局复用 `requests.Session`**（连接池，省去重复 TCP/TLS 握手）+ **并发拉取**上游 6 个接口（总耗时由最慢一个决定）；对 HTML/JSON/SVG 等文本响应自动 **gzip**（首页 54KB → 13KB，约 -76%）；静态资源设置合理缓存策略（图片等 `max-age=86400`，HTML/JS/JSON `no-cache`）+ `Vary: Accept-Encoding`
 - 🩺 **健康检查与日志**：内置 `/healthz`（无需鉴权，供 systemd/监控探活）；统一日志输出到 stderr，上游失败等告警可通过 `journalctl -u or-dashboard -f` 查看
 - 🧪 **单元测试**：`tests/` 下提供纯函数与状态标签分类用例，无需网络即可运行
-- ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
+- ⚡ **快速前端启动**：纯 HTML + 本地打包的 Chart.js 4.4.4，无需等待外部 CDN 或构建工具
 
 ## 📸 界面预览
 
@@ -152,9 +152,9 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android App 与桌面小组件
 
-`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，小组件目标尺寸固定为 5 列×2 行：支持 cell sizing 的启动器按格数布局，旧版启动器使用 dp 尺寸回退；垂直缩放已关闭。组件展示余额、累计消费、本月消费与 UTC 今日消费。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；口令与小组件只读凭证使用 Android Keystore 加密保存，WebView 退出前会清除其本地登录副本。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。小组件目标尺寸固定为 4 列×2 行：支持 cell sizing 的启动器按格数布局，旧版启动器使用 dp 尺寸回退；组件不可垂直缩放。小组件展示余额、累计消费、本月消费与 UTC 今日消费。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与小组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.11](android-widget/releases/openrouter-account-widget-v1.0.11.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`a498dec4aade431a70b436eec04647dba2b4d96e09ceedf882ccdd59dc0739ea`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.12](android-widget/releases/openrouter-account-widget-v1.0.12.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`4ba826ba03d2cfd0b1a2ee1e5667b9fc34af90563a3cddeeda1a7a11cae5fa73`。
 
 从源码构建：
 
@@ -199,8 +199,10 @@ openrouter-dashboard/
 ├── .gitignore
 ├── README.md
 └── static/
-    ├── index.html          # 前端页面（含所有逻辑，纯原生 JS + Chart.js CDN）
+    ├── index.html          # 前端页面（原生 JS + 本地 Chart.js）
     ├── manifest.json       # PWA manifest
+    ├── vendor/chart.umd.min.js # 本地 Chart.js 4.4.4，避免启动时等待 CDN
+    ├── vendor/chartjs-LICENSE.md # Chart.js MIT 许可证
     ├── sw.js               # Service Worker（仅用于满足可安装条件，不做离线缓存）
     ├── icon-192.png        # PWA 图标
     ├── icon-512.png        # PWA 图标

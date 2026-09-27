@@ -7,7 +7,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.view.View;
 import android.widget.RemoteViews;
 
 import androidx.work.Constraints;
@@ -84,7 +83,6 @@ public class WidgetProvider extends AppWidgetProvider {
     private static void showLoading(Context context, AppWidgetManager manager, int id, String message) {
         RemoteViews views = baseViews(context);
         views.setTextViewText(R.id.widget_refresh, "…");
-        views.setViewVisibility(R.id.widget_fee_note, View.GONE);
         setActions(context, views, id);
         manager.updateAppWidget(id, views);
     }
@@ -95,8 +93,8 @@ public class WidgetProvider extends AppWidgetProvider {
             RemoteViews views = baseViews(context);
             setActions(context, views, id);
             if (summary != null) {
+                views.setTextViewText(R.id.widget_title, context.getString(R.string.widget_overview_title));
                 views.setTextViewText(R.id.widget_account_name, summary.accountName);
-                views.setViewVisibility(R.id.widget_fee_note, View.GONE);
                 views.setTextViewText(R.id.widget_remaining,
                         formatCny(summary.remaining, summary.usdToCny, 2));
                 views.setTextViewText(R.id.widget_total_usage,
@@ -106,11 +104,8 @@ public class WidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(R.id.widget_today,
                         formatCny(summary.today, summary.usdToCny, 4));
             } else {
-                views.setTextViewText(R.id.widget_account_name, "未连接");
-                views.setTextViewText(R.id.widget_fee_note,
-                        error == null ? "连接失败：请打开 App 检查设置" : compact(error));
-                views.setTextColor(R.id.widget_fee_note, 0xffff6b6b);
-                views.setViewVisibility(R.id.widget_fee_note, View.VISIBLE);
+                views.setTextViewText(R.id.widget_title, errorTitle(error));
+                views.setTextViewText(R.id.widget_account_name, "点卡片检查设置");
                 views.setTextViewText(R.id.widget_remaining, "—");
                 views.setTextViewText(R.id.widget_total_usage, "—");
                 views.setTextViewText(R.id.widget_month, "—");
@@ -120,9 +115,14 @@ public class WidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static String compact(String text) {
-        String value = text.replace('\n', ' ').trim();
-        return value.length() > 34 ? value.substring(0, 33) + "…" : value;
+    private static String errorTitle(String error) {
+        if (error == null || error.isEmpty()) return "连接失败";
+        if (error.contains("HTTPS") || error.contains("SSL")) return "协议错误";
+        if (error.contains("域名") || error.contains("DNS")) return "域名错误";
+        if (error.contains("超时")) return "连接超时";
+        if (error.contains("拒绝")) return "连接被拒";
+        if (error.contains("凭证") || error.contains("认证")) return "认证失败";
+        return "刷新失败";
     }
 
     private static String formatCny(double usd, double rate, int decimals) {

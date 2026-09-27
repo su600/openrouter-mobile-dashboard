@@ -258,8 +258,11 @@ class Handler(BaseHTTPRequestHandler):
                 ".jpeg": "image/jpeg",
                 ".json": "application/json",
             }.get(ext, "application/octet-stream")
-            # 图片等静态资源可长缓存；js/json 不缓存，便于更新
-            cache_control = "no-cache" if ext in (".js", ".json") else "public, max-age=86400"
+            # 版本固定的本地 Chart.js 可缓存一天；其余 JS/JSON 不缓存以便更新。
+            if safe_path == "vendor/chart.umd.min.js":
+                cache_control = "public, max-age=86400"
+            else:
+                cache_control = "no-cache" if ext in (".js", ".json") else "public, max-age=86400"
             self._send_file(full_path, ctype, cache_control=cache_control)
             return
 
