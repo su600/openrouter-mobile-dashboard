@@ -19,4 +19,15 @@
     <string name="widget_app_claude">Claude</string>
     <string name="widget_app_pi">Pi</string>
     <string name="widget_dash">—</string>
+    <string name="news_widget_name">OpenRouter 新品快讯</string>
+    <string name="news_widget_description">主流厂商新模型发布滚动资讯</string>
+    <string name="news_widget_title">新品快讯</string>
+    <string name="news_widget_loading">正在加载新品…</string>
+    <string name="news_widget_empty">暂无新品信息</string>
+    <string name="news_new_badge">🎉 NEW</string>
+    <string name="news_announce">发布</string>
+    <string name="news_vendor_placeholder">OpenAI</string>
+    <string name="news_model_placeholder">最新模型</string>
+    <string name="news_date_placeholder">—</string>
+    <string name="news_logo_description">厂商 Logo</string>
 </resources>

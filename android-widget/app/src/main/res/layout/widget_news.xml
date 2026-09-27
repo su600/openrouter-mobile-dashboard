@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/news_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:id="@+id/news_placeholder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="3dp"
+            android:layout_height="18dp"
+            android:background="#4ade80" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:text="@string/news_widget_title"
+            android:textColor="#e6e8ec"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/news_empty"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/news_widget_loading"
+            android:textColor="#8b8fa3"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <ViewFlipper
+        android:id="@+id/news_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:autoStart="true"
+        android:flipInterval="4500"
+        android:inAnimation="@android:anim/fade_in"
+        android:outAnimation="@android:anim/fade_out"
+        android:visibility="gone" />
+</FrameLayout>

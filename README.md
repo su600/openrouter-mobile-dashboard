@@ -152,9 +152,9 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android App 与桌面小组件
 
-`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。小组件初始目标为 4 列×2 行：支持 cell sizing 的启动器按格数布局，旧版启动器使用 dp 尺寸回退；允许横向拉伸，但垂直高度锁定为 2 行。小组件展示余额、累计消费、本月消费、UTC 今日消费，以及按近 30 天用量降序排列的 Codex / Claude / Pi 使用额；金额字号提升至 30sp，主体在卡片内垂直居中。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与小组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；新品组件为 4×1，轮播模型名、厂商 Logo、发布日期及近 7 天新品标识。App 图标与两个组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.21](android-widget/releases/openrouter-account-widget-v1.0.21.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`50e89e6b1f8cd2126077812b8291edb38bb85e7fa897f8647b8751298d66bc5e`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.24](android-widget/releases/openrouter-account-widget-v1.0.24.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`1d856f414bd8539178568ce3873feaec0e7e135c9bfe094677cf020ff3d331e9`。
 
 从源码构建：
 
@@ -231,6 +231,7 @@ openrouter-dashboard/
    - `GET /api/summary?token=xxx&account=xxx[&refresh=1]` ：聚合指定账户的 OpenRouter 官方 API 数据（按账户分别缓存 60 秒；`refresh=1` 强制绕过缓存，供手动刷新按钮使用）
    - `POST /api/widget/session` ：通过 `Authorization: Bearer <dashboard_token>` 换取独立只读凭证
    - `GET /api/widget/accounts`、`GET /api/widget/summary?account=xxx[&refresh=1]` ：只读凭证专用接口；summary 附带 Codex / Claude / Pi 近 30 天用量，`refresh=1` 跳过缓存；不返回任何 API Key 或管理操作
+   - `GET /api/widget/news` ：返回新品轮播所需的厂商、模型名、发布日期和时间戳，仅使用只读凭证
    - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
    - `GET /api/model_prices?token=xxx[&refresh=1]` ：抓取 OpenRouter 模型价格，返回 GPT / Claude 两大家族「最新一代」旗舰模型的输入/输出价格（单位 USD / 百万 tokens），供底部对比卡片展示（1 小时缓存；带 `refresh=1` 时跳过缓存强制重取）
    - `GET /healthz` ：健康检查，无需鉴权，返回 `{"ok": true, "time": ...}`，供 systemd / 监控探活

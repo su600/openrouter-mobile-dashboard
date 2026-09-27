@@ -158,6 +158,27 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/widget/news":
+            if not widget_auth.widget_authorized(self.headers.get("Authorization")):
+                return self._unauthorized()
+            try:
+                news = api.get_latest_models_cached()
+                safe_news = [
+                    {
+                        "vendor": item.get("vendor"),
+                        "model_id": item.get("model_id"),
+                        "model_name": item.get("model_name"),
+                        "created": item.get("created"),
+                        "date": item.get("date"),
+                    }
+                    for item in news
+                ]
+                self._send_json({"news": safe_news}, cache_control="no-store")
+            except Exception as e:
+                logger.warning("生成 widget news 失败: %s", e)
+                self._send_json({"error": "暂时无法获取新品信息"}, 500, cache_control="no-store")
+            return
+
         if parsed.path == "/api/widget/summary":
             if not widget_auth.widget_authorized(self.headers.get("Authorization")):
                 return self._unauthorized()

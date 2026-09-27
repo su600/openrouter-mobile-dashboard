@@ -32,6 +32,16 @@ class TestWidgetRoutes(unittest.TestCase):
                 "accounts": [self.account], "active": "acct_test"
             }),
             patch.object(server.accounts_store, "get_account", return_value=self.account),
+            patch.object(server.api, "get_latest_models_cached", return_value=[
+                {
+                    "vendor": "Anthropic",
+                    "model_id": "anthropic/claude-opus-5",
+                    "model_name": "Anthropic: Claude Opus 5",
+                    "created": 1790000000,
+                    "date": "2026-09-21",
+                    "api_key": "must-not-appear",
+                }
+            ]),
             patch.object(server.api, "get_summary_cached", return_value={
                 "generated_at": 1234567890,
                 "account_id": "acct_test",
@@ -126,6 +136,15 @@ class TestWidgetRoutes(unittest.TestCase):
         self.assertEqual(account["access_status"]["state"], "healthy")
         self.assertNotIn("api_key", account)
         self.assertNotIn("key_masked", account)
+
+    def test_widget_news_is_readonly_and_redacts_unrequested_fields(self):
+        token = server.widget_auth.get_or_create_widget_token(self.token_path)
+        status, response = self.request("/api/widget/news", token=token)
+        self.assertEqual(status, 200)
+        self.assertEqual(response["news"][0]["vendor"], "Anthropic")
+        self.assertEqual(response["news"][0]["model_id"], "anthropic/claude-opus-5")
+        self.assertNotIn("api_key", response["news"][0])
+        self.assertNotIn("must-not-appear", json.dumps(response))
 
     def test_widget_summary_returns_only_compact_safe_fields(self):
         token = server.widget_auth.get_or_create_widget_token(self.token_path)

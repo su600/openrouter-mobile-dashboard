@@ -38,6 +38,22 @@ final class WidgetApi {
         }
     }
 
+    static final class NewsItem {
+        final String vendor;
+        final String modelId;
+        final String modelName;
+        final long created;
+        final String date;
+
+        NewsItem(String vendor, String modelId, String modelName, long created, String date) {
+            this.vendor = vendor;
+            this.modelId = modelId;
+            this.modelName = modelName;
+            this.created = created;
+            this.date = date;
+        }
+    }
+
     static final class Summary {
         String accountName;
         final List<AppUsage> appsLast30Days = new ArrayList<>();
@@ -65,6 +81,24 @@ final class WidgetApi {
             JSONObject row = rows.optJSONObject(i);
             if (row == null) continue;
             result.add(new Account(row.optString("id", ""), row.optString("name", "账户")));
+        }
+        return result;
+    }
+
+    static List<NewsItem> latestNews(String baseUrl, String widgetToken) throws Exception {
+        JSONObject json = request(baseUrl, "/api/widget/news", "GET", widgetToken, null);
+        JSONArray rows = json.optJSONArray("news");
+        List<NewsItem> result = new ArrayList<>();
+        if (rows == null) return result;
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i);
+            if (row == null) continue;
+            result.add(new NewsItem(
+                    row.optString("vendor", ""),
+                    row.optString("model_id", ""),
+                    row.optString("model_name", ""),
+                    row.optLong("created", 0L),
+                    row.optString("date", "")));
         }
         return result;
     }
