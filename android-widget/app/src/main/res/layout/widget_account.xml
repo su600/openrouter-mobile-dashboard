@@ -208,7 +208,7 @@
         android:id="@+id/widget_apps_usage"
         android:layout_width="match_parent"
         android:layout_height="38dp"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="9dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
         <TextView

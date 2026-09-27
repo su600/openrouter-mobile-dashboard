@@ -40,12 +40,11 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <AdapterViewFlipper
+    <ViewFlipper
         android:id="@+id/news_flipper"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:autoStart="true"
-        android:loopViews="true"
         android:flipInterval="4500"
         android:inAnimation="@android:anim/fade_in"
         android:outAnimation="@android:anim/fade_out"
