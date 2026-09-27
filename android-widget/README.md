@@ -2,7 +2,7 @@
 
 The Android app opens the existing responsive dashboard in a WebView and bundles its native home-screen widget. The app icon and widget use the same logo. The widget follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), with an initial 4-column × 2-row target on launchers that support cell sizing (dp fallback elsewhere); horizontal resizing is allowed while the height stays at 2 rows. It shows remaining balance, cumulative spend, monthly spend, and UTC today's spend. Static fee guidance is omitted; a connection diagnostic appears only when refresh fails. The dashboard uses a locally served Chart.js bundle, avoiding a blocking CDN fetch at startup.
 
-**Prebuilt APK v1.0.13:** [Download](releases/openrouter-account-widget-v1.0.13.apk). This debug-signed APK is for direct installation, not Google Play distribution.
+**Prebuilt APK v1.0.14:** [Download](releases/openrouter-account-widget-v1.0.14.apk). This debug-signed APK is for direct installation, not Google Play distribution.
 
 ## Setup
 
