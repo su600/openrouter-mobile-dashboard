@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -21,8 +22,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-/** Static RemoteViews ticker; avoids launcher-sensitive dynamic child and collection adapters. */
+/** Samsung One UI-friendly news widget using only stock RemoteViews setters and simple views. */
 public class NewsWidgetProvider extends AppWidgetProvider {
+    private static final String TAG = "NewsWidgetProvider";
     private static final String PERIODIC_WORK = "openrouter-news-widget-periodic-refresh";
     private static final String MANUAL_WORK = "openrouter-news-widget-refresh";
 
@@ -37,8 +39,12 @@ public class NewsWidgetProvider extends AppWidgetProvider {
         List<WidgetApi.NewsItem> cached = NewsCache.load(context);
         updateWidgets(context, manager, ids, cached,
                 cached.isEmpty() ? context.getString(R.string.news_widget_loading) : null);
-        schedulePeriodic(context);
-        enqueueRefresh(context);
+        try {
+            schedulePeriodic(context);
+            enqueueRefresh(context);
+        } catch (RuntimeException error) {
+            Log.w(TAG, "Unable to schedule news refresh", error);
+        }
     }
 
     static void showNews(Context context, AppWidgetManager manager, int[] ids,
@@ -54,24 +60,23 @@ public class NewsWidgetProvider extends AppWidgetProvider {
         for (int id : ids) {
             RemoteViews widget = baseViews(context, id);
             if (news == null || news.isEmpty()) {
-                widget.setViewVisibility(R.id.news_content, View.GONE);
-                widget.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
-                widget.setTextViewText(R.id.news_empty,
-                        error == null ? context.getString(R.string.news_widget_empty) : error);
+                widget.setImageViewResource(R.id.news_logo, R.drawable.news_openai);
+                widget.setTextViewText(R.id.news_vendor, context.getString(R.string.news_widget_title));
+                widget.setTextViewText(R.id.news_date, context.getString(R.string.news_date_placeholder));
+                widget.setTextViewText(R.id.news_ticker, error == null
+                        ? context.getString(R.string.news_widget_empty) : error);
+                widget.setViewVisibility(R.id.news_new_badge, View.GONE);
             } else {
                 WidgetApi.NewsItem latest = news.get(0);
                 widget.setImageViewResource(R.id.news_logo, logoForVendor(latest.vendor));
                 widget.setTextViewText(R.id.news_vendor, safe(latest.vendor));
                 widget.setTextViewText(R.id.news_date, safe(latest.date));
                 widget.setTextViewText(R.id.news_ticker, buildTicker(news));
-                widget.setBoolean(R.id.news_ticker, "setSelected", true);
                 long age = System.currentTimeMillis() - latest.created * 1000L;
                 boolean isNew = latest.created > 0 && age >= 0
                         && age <= 7L * 24 * 60 * 60 * 1000;
                 widget.setViewVisibility(R.id.news_new_badge,
                         isNew ? View.VISIBLE : View.GONE);
-                widget.setViewVisibility(R.id.news_placeholder, View.GONE);
-                widget.setViewVisibility(R.id.news_content, View.VISIBLE);
             }
             manager.updateAppWidget(id, widget);
         }
@@ -81,14 +86,14 @@ public class NewsWidgetProvider extends AppWidgetProvider {
         StringBuilder ticker = new StringBuilder();
         long now = System.currentTimeMillis();
         for (WidgetApi.NewsItem item : news) {
-            if (ticker.length() > 0) ticker.append("     ·     ");
+            if (ticker.length() > 0) ticker.append("   •   ");
             ticker.append(safe(item.vendor)).append("：")
                     .append(stripVendorPrefix(item.modelName, item.vendor));
             long age = now - item.created * 1000L;
             if (item.created > 0 && age >= 0 && age <= 7L * 24 * 60 * 60 * 1000) {
                 ticker.append("  NEW");
             }
-            if (item.date != null && !item.date.isEmpty()) ticker.append("  ").append(item.date);
+            if (item.date != null && !item.date.isEmpty()) ticker.append(" · ").append(item.date);
         }
         return ticker.toString();
     }
