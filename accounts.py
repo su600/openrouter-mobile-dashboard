@@ -15,6 +15,24 @@ from config import ACCOUNTS_PATH, CONFIG
 
 _accounts_lock = threading.Lock()
 
+ACCESS_STATUS_META = {
+    "healthy": {"emoji": "✅", "label": "正常"},
+    "restricted": {"emoji": "🚫", "label": "受限"},
+    "partial": {"emoji": "⚠️", "label": "部分受限"},
+    "unknown": {"emoji": "❓", "label": "未标记"},
+}
+
+
+def build_access_status(state, source="manual"):
+    """生成不依赖模型调用的账户访问状态标签。"""
+    if state not in ACCESS_STATUS_META:
+        state = "unknown"
+    return {
+        "state": state,
+        **ACCESS_STATUS_META[state],
+        "source": source if source in ("manual", "user_reported") else "manual",
+    }
+
 
 def mask_key(api_key):
     """返回脱敏后的 Key，用于前端展示。"""
@@ -89,6 +107,7 @@ def save_accounts(data):
     tmp = ACCOUNTS_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.chmod(tmp, 0o600)
     os.replace(tmp, ACCOUNTS_PATH)
 
 
@@ -105,8 +124,13 @@ def get_account(account_id=None):
 
 
 def public_account(a):
+    status = a.get("access_status")
+    if not isinstance(status, dict):
+        status = {}
+    access_status = build_access_status(status.get("state", "unknown"), status.get("source", "manual"))
     return {
         "id": a["id"],
         "name": a.get("name") or a["id"],
         "key_masked": mask_key(a.get("api_key", "")),
+        "access_status": access_status,
     }

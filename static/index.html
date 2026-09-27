@@ -649,7 +649,17 @@
     line-height: 15px;
     flex-shrink: 0;
   }
-  .account-list-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .account-list-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .account-status-select {
+    max-width: 112px;
+    height: 30px;
+    padding: 0 6px;
+    border: 1px solid var(--input-border);
+    border-radius: 7px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 11px;
+  }
   .account-icon-btn {
     background: none;
     border: none;
@@ -1129,6 +1139,7 @@
       <button class="modal-close" onclick="closeAccountsModal()">✕</button>
     </div>
     <div class="modal-body">
+      <div class="account-form-msg">访问状态为人工标记；管理 Key 无法通过模型调用自动验证。</div>
       <ul class="account-list" id="account-list"></ul>
       <div class="account-add-form">
         <div class="form-title">➕ 添加账户</div>
@@ -1816,12 +1827,24 @@ async function loadAccounts() {
   }
 }
 
+function accountAccessEmoji(status) {
+  return status?.emoji || "❓";
+}
+
+function accountAccessTitle(status) {
+  if (!status) return "访问状态未标记；管理 Key 无法用于模型推理验证";
+  const source = status.source === "user_reported" ? "按用户提供的信息标记" : "手动标记";
+  return `${status.emoji || "❓"} ${status.label || "未标记"}（${source}，未通过模型调用验证）`;
+}
+
 function renderAccountSelect() {
   const sel = document.getElementById("account-select");
   if (!sel) return;
   sel.innerHTML = accounts.map(a =>
-    `<option value="${a.id}" ${a.id === currentAccountId ? "selected" : ""}>${escapeHtml(a.name)}</option>`
+    `<option value="${a.id}" ${a.id === currentAccountId ? "selected" : ""}>${accountAccessEmoji(a.access_status)} ${escapeHtml(a.name)}</option>`
   ).join("");
+  const current = accounts.find(a => a.id === currentAccountId);
+  if (current) sel.title = accountAccessTitle(current.access_status);
 }
 
 function switchAccount() {
@@ -1855,10 +1878,42 @@ function renderAccountManageList() {
         <div class="account-list-key">${escapeHtml(a.key_masked)}</div>
       </div>
       <div class="account-list-actions">
+        <select class="account-status-select" aria-label="${escapeHtml(a.name)} 访问状态" onchange="setAccountAccessStatus('${a.id}', this.value)">
+          ${[
+            ["unknown", "❓ 未标记"],
+            ["healthy", "✅ 正常"],
+            ["partial", "⚠️ 部分受限"],
+            ["restricted", "🚫 受限"],
+          ].map(([state, label]) => `<option value="${state}" ${a.access_status?.state === state ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
         <button class="account-icon-btn" onclick="renameAccount('${a.id}')" title="重命名">✏️</button>
         <button class="account-icon-btn danger" onclick="deleteAccount('${a.id}')" title="删除">🗑️</button>
       </div>
     </li>`).join("");
+}
+
+async function setAccountAccessStatus(id, state) {
+  try {
+    const resp = await fetch(`/api/accounts/status?token=${encodeURIComponent(getToken())}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, state }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      alert(data.error || "状态更新失败");
+      await loadAccounts();
+      renderAccountManageList();
+      return;
+    }
+    accounts = accounts.map(a => a.id === id ? { ...a, access_status: data.account.access_status } : a);
+    renderAccountSelect();
+    renderAccountManageList();
+  } catch (e) {
+    alert("网络错误: " + e.message);
+    await loadAccounts();
+    renderAccountManageList();
+  }
 }
 
 async function addAccount() {

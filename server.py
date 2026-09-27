@@ -4,7 +4,7 @@
 
 - 服务端持有 OpenRouter API Key（支持多账户/多 Key），前端只用一个访问口令(token)
 - 提供 /api/summary 聚合接口：账户余额/消费 + 近30天每日消费趋势 + 模型调用量排行
-- 提供 /api/accounts 账户管理接口：查看/新增/重命名/删除多个 API Key
+- 提供 /api/accounts 账户管理接口：查看/新增/重命名/删除多个 API Key，并维护人工访问状态
 - 提供 /api/model_prices 旗舰模型价格对比、/api/latest_models 新品新闻
 - 提供 /healthz 健康检查（无需鉴权，供 systemd / 监控探活）
 - 静态页面 /（移动端自适应）
@@ -248,6 +248,24 @@ class Handler(BaseHTTPRequestHandler):
             resp = accounts_store.public_account(account)
             resp["is_free_tier"] = key_info.get("is_free_tier")
             self._send_json({"ok": True, "account": resp})
+            return
+
+        if parsed.path == "/api/accounts/status":
+            body = self._read_json_body()
+            acct_id = (body.get("id") or "").strip()
+            state = body.get("state")
+            if not acct_id or state not in accounts_store.ACCESS_STATUS_META:
+                self._send_json({"error": "状态参数无效"}, 400)
+                return
+            with accounts_store._accounts_lock:
+                data = accounts_store.load_accounts()
+                found = next((a for a in data["accounts"] if a["id"] == acct_id), None)
+                if not found:
+                    self._send_json({"error": "账户不存在"}, 404)
+                    return
+                found["access_status"] = accounts_store.build_access_status(state, "manual")
+                accounts_store.save_accounts(data)
+            self._send_json({"ok": True, "account": accounts_store.public_account(found)})
             return
 
         if parsed.path == "/api/accounts/rename":
