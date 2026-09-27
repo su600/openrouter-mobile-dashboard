@@ -152,9 +152,9 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android App 与桌面小组件
 
-`android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；新品组件为 4×1，轮播模型名、厂商 Logo、发布日期及近 7 天新品标识。App 图标与两个组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；新品组件为 4×1，使用纯 RemoteViews 横向滚动展示厂商、模型、发布日期及近 7 天新品标识，避免启动器不支持的动态子视图和自动轮播绑定。App 图标与两个组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.27](android-widget/releases/openrouter-account-widget-v1.0.27.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`4a63a23750fb8652e20223574ef5a30b42bf109019e12bb022a641662b9df1ee`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.28](android-widget/releases/openrouter-account-widget-v1.0.28.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`c7aa63dd9fb288bcfcd030dc7ed514d0bf15b690c010e73876a1d79e64c1eb31`。
 
 从源码构建：
 

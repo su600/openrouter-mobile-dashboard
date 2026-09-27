@@ -40,13 +40,76 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <ViewFlipper
-        android:id="@+id/news_flipper"
+    <LinearLayout
+        android:id="@+id/news_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:autoStart="true"
-        android:flipInterval="4500"
-        android:inAnimation="@android:anim/fade_in"
-        android:outAnimation="@android:anim/fade_out"
-        android:visibility="gone" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+        <TextView
+            android:layout_width="3dp"
+            android:layout_height="18dp"
+            android:background="#4ade80" />
+        <TextView
+            android:id="@+id/news_new_badge"
+            android:layout_width="44dp"
+            android:layout_height="22dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/widget_topup_background"
+            android:gravity="center"
+            android:text="@string/news_new_badge"
+            android:textColor="#0f1117"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+        <ImageView
+            android:id="@+id/news_logo"
+            android:layout_width="27dp"
+            android:layout_height="27dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/news_logo_background"
+            android:contentDescription="@string/news_logo_description"
+            android:padding="2dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/news_openai" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/news_vendor"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/news_vendor_placeholder"
+                android:textColor="#e6e8ec"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/news_ticker"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:scrollHorizontally="true"
+                android:singleLine="true"
+                android:text="@string/news_model_placeholder"
+                android:textColor="#4ade80"
+                android:textSize="13sp" />
+            <TextView
+                android:id="@+id/news_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/news_date_placeholder"
+                android:textColor="#6b7085"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
 </FrameLayout>

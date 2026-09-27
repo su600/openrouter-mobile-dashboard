@@ -25,7 +25,6 @@
     <string name="news_widget_loading">正在加载新品…</string>
     <string name="news_widget_empty">暂无新品信息</string>
     <string name="news_new_badge">🎉 NEW</string>
-    <string name="news_announce">发布</string>
     <string name="news_vendor_placeholder">OpenAI</string>
     <string name="news_model_placeholder">最新模型</string>
     <string name="news_date_placeholder">—</string>

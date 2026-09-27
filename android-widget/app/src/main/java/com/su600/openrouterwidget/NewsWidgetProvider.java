@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-/** A self-contained widget: all news rows are embedded in RemoteViews, with no host-bound service. */
+/** Static RemoteViews ticker; avoids launcher-sensitive dynamic child and collection adapters. */
 public class NewsWidgetProvider extends AppWidgetProvider {
     private static final String PERIODIC_WORK = "openrouter-news-widget-periodic-refresh";
     private static final String MANUAL_WORK = "openrouter-news-widget-refresh";
@@ -35,7 +35,7 @@ public class NewsWidgetProvider extends AppWidgetProvider {
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, NewsWidgetProvider.class));
         if (ids.length == 0) return;
         List<WidgetApi.NewsItem> cached = NewsCache.load(context);
-        showNews(context, manager, ids, cached,
+        updateWidgets(context, manager, ids, cached,
                 cached.isEmpty() ? context.getString(R.string.news_widget_loading) : null);
         schedulePeriodic(context);
         enqueueRefresh(context);
@@ -46,48 +46,55 @@ public class NewsWidgetProvider extends AppWidgetProvider {
         if (news != null && !news.isEmpty()) NewsCache.save(context, news);
         List<WidgetApi.NewsItem> display = news == null || news.isEmpty()
                 ? NewsCache.load(context) : news;
+        updateWidgets(context, manager, ids, display, error);
+    }
+
+    private static void updateWidgets(Context context, AppWidgetManager manager, int[] ids,
+                                      List<WidgetApi.NewsItem> news, String error) {
         for (int id : ids) {
             RemoteViews widget = baseViews(context, id);
-            try {
-                if (display.isEmpty()) {
-                    widget.setViewVisibility(R.id.news_flipper, View.GONE);
-                    widget.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
-                    widget.setTextViewText(R.id.news_empty,
-                            error == null ? context.getString(R.string.news_widget_empty) : error);
-                } else {
-                    widget.removeAllViews(R.id.news_flipper);
-                    for (WidgetApi.NewsItem item : display) {
-                        widget.addView(R.id.news_flipper, createNewsRow(context, item));
-                    }
-                    widget.setInt(R.id.news_flipper, "setFlipInterval", 4500);
-                    widget.setBoolean(R.id.news_flipper, "setAutoStart", true);
-                    widget.setDisplayedChild(R.id.news_flipper, 0);
-                    widget.setViewVisibility(R.id.news_placeholder, View.GONE);
-                    widget.setViewVisibility(R.id.news_flipper, View.VISIBLE);
-                }
-                manager.updateAppWidget(id, widget);
-            } catch (Exception renderError) {
-                // Never leave the widget stuck on a stale RemoteViews tree: fall back to a
-                // plain placeholder rather than silently failing to update.
-                RemoteViews fallback = baseViews(context, id);
-                fallback.setViewVisibility(R.id.news_flipper, View.GONE);
-                fallback.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
-                fallback.setTextViewText(R.id.news_empty, context.getString(R.string.news_widget_empty));
-                manager.updateAppWidget(id, fallback);
+            if (news == null || news.isEmpty()) {
+                widget.setViewVisibility(R.id.news_content, View.GONE);
+                widget.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
+                widget.setTextViewText(R.id.news_empty,
+                        error == null ? context.getString(R.string.news_widget_empty) : error);
+            } else {
+                WidgetApi.NewsItem latest = news.get(0);
+                widget.setImageViewResource(R.id.news_logo, logoForVendor(latest.vendor));
+                widget.setTextViewText(R.id.news_vendor, safe(latest.vendor));
+                widget.setTextViewText(R.id.news_date, safe(latest.date));
+                widget.setTextViewText(R.id.news_ticker, buildTicker(news));
+                widget.setBoolean(R.id.news_ticker, "setSelected", true);
+                long age = System.currentTimeMillis() - latest.created * 1000L;
+                boolean isNew = latest.created > 0 && age >= 0
+                        && age <= 7L * 24 * 60 * 60 * 1000;
+                widget.setViewVisibility(R.id.news_new_badge,
+                        isNew ? View.VISIBLE : View.GONE);
+                widget.setViewVisibility(R.id.news_placeholder, View.GONE);
+                widget.setViewVisibility(R.id.news_content, View.VISIBLE);
             }
+            manager.updateAppWidget(id, widget);
         }
     }
 
-    private static RemoteViews createNewsRow(Context context, WidgetApi.NewsItem item) {
-        RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.widget_news_item);
-        row.setImageViewResource(R.id.news_logo, logoForVendor(item.vendor));
-        row.setTextViewText(R.id.news_vendor, item.vendor);
-        row.setTextViewText(R.id.news_model, stripVendorPrefix(item.modelName, item.vendor));
-        row.setTextViewText(R.id.news_date, item.date);
-        long age = System.currentTimeMillis() - item.created * 1000L;
-        boolean isNew = item.created > 0 && age >= 0 && age <= 7L * 24 * 60 * 60 * 1000;
-        row.setViewVisibility(R.id.news_new_badge, isNew ? View.VISIBLE : View.GONE);
-        return row;
+    private static String buildTicker(List<WidgetApi.NewsItem> news) {
+        StringBuilder ticker = new StringBuilder();
+        long now = System.currentTimeMillis();
+        for (WidgetApi.NewsItem item : news) {
+            if (ticker.length() > 0) ticker.append("     ·     ");
+            ticker.append(safe(item.vendor)).append("：")
+                    .append(stripVendorPrefix(item.modelName, item.vendor));
+            long age = now - item.created * 1000L;
+            if (item.created > 0 && age >= 0 && age <= 7L * 24 * 60 * 60 * 1000) {
+                ticker.append("  NEW");
+            }
+            if (item.date != null && !item.date.isEmpty()) ticker.append("  ").append(item.date);
+        }
+        return ticker.toString();
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private static int logoForVendor(String vendor) {
