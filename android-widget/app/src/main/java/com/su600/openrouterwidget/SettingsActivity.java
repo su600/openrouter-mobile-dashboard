@@ -45,12 +45,24 @@ public class SettingsActivity extends Activity {
     private List<WidgetApi.Account> accounts = new ArrayList<>();
     private String pendingWidgetToken;
     private String pendingBaseUrl;
+    private String savedDashboardToken = "";
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         buildScreen();
-        urlField.setText(WidgetStore.baseUrl(this));
+        String savedBaseUrl = WidgetStore.baseUrl(this);
+        urlField.setText(savedBaseUrl);
         saveButton.setVisibility(View.GONE);
+        try {
+            savedDashboardToken = SecretStore.readDashboardToken(this);
+            if (savedDashboardToken != null) passwordField.setText(savedDashboardToken);
+            else savedDashboardToken = "";
+            if (!savedBaseUrl.isEmpty() && SecretStore.readToken(this) != null) {
+                connectToServer(savedBaseUrl, savedDashboardToken);
+            }
+        } catch (Exception e) {
+            setMessage("本机凭证读取失败，请重新连接看板。", true);
+        }
     }
 
     private void buildScreen() {
@@ -103,7 +115,7 @@ public class SettingsActivity extends Activity {
         LinearLayout.LayoutParams passLabelLp = wrap();
         passLabelLp.topMargin = dp(17);
         card.addView(passLabel, passLabelLp);
-        passwordField = field("仅首次连接时输入", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordField = field("输入后加密保存，后续自动填入", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         LinearLayout.LayoutParams passLp = matchWrap();
         passLp.topMargin = dp(7);
         card.addView(passwordField, passLp);
@@ -135,7 +147,7 @@ public class SettingsActivity extends Activity {
         msgLp.topMargin = dp(12);
         card.addView(message, msgLp);
 
-        TextView security = text("安全提示：首次连接只用看板口令换取只读凭证；口令不会保存在手机，凭证由 Android Keystore 加密。公网连接请使用 HTTPS 或可信 VPN。", 11, MUTED, false);
+        TextView security = text("安全提示：看板口令和只读凭证均由 Android Keystore 加密保存；公网连接请使用 HTTPS 或可信 VPN。", 11, MUTED, false);
         LinearLayout.LayoutParams securityLp = wrap();
         securityLp.topMargin = dp(14);
         card.addView(security, securityLp);
@@ -187,20 +199,35 @@ public class SettingsActivity extends Activity {
         setBusy(true, "正在连接看板…");
         executor.execute(() -> {
             try {
-                String widgetToken;
-                if (!dashboardToken.isEmpty()) {
+                boolean savedPassword = !dashboardToken.isEmpty()
+                        && dashboardToken.equals(savedDashboardToken);
+                String widgetToken = (savedPassword || dashboardToken.isEmpty())
+                        ? SecretStore.readToken(this) : null;
+                if (widgetToken == null) {
+                    if (dashboardToken.isEmpty()) {
+                        throw new IllegalStateException("首次连接需要输入看板访问口令。");
+                    }
                     widgetToken = WidgetApi.exchangeDashboardToken(baseUrl, dashboardToken);
-                    runOnUiThread(() -> passwordField.setText(""));
-                } else {
-                    widgetToken = SecretStore.readToken(this);
-                    if (widgetToken == null) throw new IllegalStateException("首次连接需要输入看板访问口令。");
+                    SecretStore.saveToken(this, widgetToken);
+                    SecretStore.saveDashboardToken(this, dashboardToken);
                 }
-                List<WidgetApi.Account> fetched = WidgetApi.accounts(baseUrl, widgetToken);
+                List<WidgetApi.Account> fetched;
+                try {
+                    fetched = WidgetApi.accounts(baseUrl, widgetToken);
+                } catch (Exception firstError) {
+                    if (!savedPassword || firstError.getMessage() == null
+                            || !firstError.getMessage().contains("401")) throw firstError;
+                    widgetToken = WidgetApi.exchangeDashboardToken(baseUrl, dashboardToken);
+                    SecretStore.saveToken(this, widgetToken);
+                    fetched = WidgetApi.accounts(baseUrl, widgetToken);
+                }
                 if (fetched.isEmpty()) throw new IllegalStateException("看板还没有可显示的账户。");
+                final String resolvedWidgetToken = widgetToken;
+                final List<WidgetApi.Account> resolvedAccounts = fetched;
                 runOnUiThread(() -> {
-                    pendingWidgetToken = widgetToken;
+                    pendingWidgetToken = resolvedWidgetToken;
                     pendingBaseUrl = baseUrl;
-                    accounts = fetched;
+                    accounts = resolvedAccounts;
                     ArrayAdapter<WidgetApi.Account> adapter = new ArrayAdapter<>(this,
                             android.R.layout.simple_spinner_item, accounts);
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -209,9 +236,9 @@ public class SettingsActivity extends Activity {
                     for (int i = 0; i < accounts.size(); i++) {
                         if (accounts.get(i).id.equals(savedId)) { accountSpinner.setSelection(i); break; }
                     }
-                    passwordField.setText("");
+                    if (!dashboardToken.isEmpty()) savedDashboardToken = dashboardToken;
                     saveButton.setVisibility(View.VISIBLE);
-                    setBusy(false, "已连接。选择账户后保存；看板口令未保存在手机。", false);
+                    setBusy(false, "已连接。看板口令和只读凭证已加密保存。", false);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> setBusy(false, friendly(e), true));

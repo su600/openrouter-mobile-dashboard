@@ -83,6 +83,7 @@ public class WidgetProvider extends AppWidgetProvider {
 
     private static void showLoading(Context context, AppWidgetManager manager, int id, String message) {
         RemoteViews views = baseViews(context);
+        views.setTextViewText(R.id.widget_refresh, "…");
         views.setViewVisibility(R.id.widget_fee_note, View.GONE);
         setActions(context, views, id);
         manager.updateAppWidget(id, views);
@@ -134,14 +135,15 @@ public class WidgetProvider extends AppWidgetProvider {
         Intent open = new Intent(context, SettingsActivity.class);
         PendingIntent openPending = PendingIntent.getActivity(context, 20, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(R.id.widget_root, openPending);
+        views.setOnClickPendingIntent(R.id.widget_title, openPending);
+        views.setOnClickPendingIntent(R.id.widget_data, openPending);
         return views;
     }
 
     private static void setActions(Context context, RemoteViews views, int id) {
-        Intent refresh = new Intent(context, WidgetProvider.class).setAction(ACTION_REFRESH);
+        Intent refresh = new Intent(context, RefreshActivity.class);
         refresh.setData(Uri.parse("widget://refresh/" + id));
-        PendingIntent refreshPending = PendingIntent.getBroadcast(context, id, refresh,
+        PendingIntent refreshPending = PendingIntent.getActivity(context, id, refresh,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_refresh, refreshPending);
 

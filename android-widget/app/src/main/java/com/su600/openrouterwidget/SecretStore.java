@@ -13,30 +13,51 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
-/** Encrypts the scoped read-only widget token with a non-exportable Android Keystore key. */
+/** Encrypts local credentials with a non-exportable Android Keystore key. */
 final class SecretStore {
     private static final String PREFS = "widget_secrets";
     private static final String KEY_ALIAS = "openrouter-widget-readonly-v1";
-    private static final String IV_KEY = "token_iv";
-    private static final String DATA_KEY = "token_data";
+    // Keep the original keys so existing installs retain their saved widget token.
+    private static final String WIDGET_IV_KEY = "token_iv";
+    private static final String WIDGET_DATA_KEY = "token_data";
+    private static final String DASHBOARD_IV_KEY = "dashboard_token_iv";
+    private static final String DASHBOARD_DATA_KEY = "dashboard_token_data";
 
     private SecretStore() {}
 
     static void saveToken(Context context, String token) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
-        byte[] encrypted = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
-        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        prefs.edit()
-                .putString(IV_KEY, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
-                .putString(DATA_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-                .apply();
+        saveSecret(context, WIDGET_IV_KEY, WIDGET_DATA_KEY, token);
     }
 
     static String readToken(Context context) throws Exception {
+        return readSecret(context, WIDGET_IV_KEY, WIDGET_DATA_KEY);
+    }
+
+    static void saveDashboardToken(Context context, String token) throws Exception {
+        saveSecret(context, DASHBOARD_IV_KEY, DASHBOARD_DATA_KEY, token);
+    }
+
+    static String readDashboardToken(Context context) throws Exception {
+        return readSecret(context, DASHBOARD_IV_KEY, DASHBOARD_DATA_KEY);
+    }
+
+    private static void saveSecret(Context context, String ivKey, String dataKey, String value) throws Exception {
+        if (value == null || value.isEmpty()) return;
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+        byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String ivText = prefs.getString(IV_KEY, null);
-        String dataText = prefs.getString(DATA_KEY, null);
+        boolean saved = prefs.edit()
+                .putString(ivKey, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
+                .putString(dataKey, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .commit();
+        if (!saved) throw new IllegalStateException("无法保存加密凭证");
+    }
+
+    private static String readSecret(Context context, String ivKey, String dataKey) throws Exception {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String ivText = prefs.getString(ivKey, null);
+        String dataText = prefs.getString(dataKey, null);
         if (ivText == null || dataText == null) return null;
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(),

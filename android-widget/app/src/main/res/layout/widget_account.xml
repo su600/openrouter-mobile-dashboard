@@ -6,9 +6,9 @@
     android:background="@drawable/widget_background"
     android:gravity="center_vertical"
     android:orientation="vertical"
-    android:paddingStart="13dp"
+    android:paddingStart="22dp"
     android:paddingTop="9dp"
-    android:paddingEnd="13dp"
+    android:paddingEnd="22dp"
     android:paddingBottom="8dp">
 
     <LinearLayout
@@ -87,6 +87,7 @@
         android:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/widget_data"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="3dp"

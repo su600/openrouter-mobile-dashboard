@@ -152,9 +152,9 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android 桌面小组件
 
-原生 Android 小组件源码位于 `android-widget/`，按约 5×2 网格尺寸呈现，保留账户名、充值/刷新按钮及余额、累计消费、本月消费、UTC 今日消费；静态说明不占用小组件空间。首次打开 App 时填写看板 URL 和现有看板访问口令；App 通过 `/api/widget/session` 换取**只读凭证**，只读凭证使用 Android Keystore 加密保存。OpenRouter API Key 不会进入 APK 或手机。
+原生 Android 小组件源码位于 `android-widget/`，按约 5×2 网格尺寸呈现，保留账户名、充值/刷新按钮及余额、累计消费、本月消费、UTC 今日消费；静态说明不占用小组件空间。首次打开 App 时填写看板 URL 和现有看板访问口令；App 通过 `/api/widget/session` 换取**只读凭证**，并将看板口令与只读凭证都用 Android Keystore 加密持久化。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户桌面小组件 v1.0.5](android-widget/releases/openrouter-account-widget-v1.0.5.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`90bc5d3579cd39e518bcb3ee27e73fce7a8044a1b2695b841f68ff25a666ed7a`。
+**预编译 APK**：[下载 OpenRouter 账户桌面小组件 v1.0.7](android-widget/releases/openrouter-account-widget-v1.0.7.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`255e8afc59dc0be5dffe5a83c6b188a9c3eea33c0780780769925fbcfd5dbb52`。
 
 从源码构建：
 
