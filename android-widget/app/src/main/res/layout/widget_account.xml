@@ -82,7 +82,7 @@
         android:orientation="vertical">
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="38dp"
+            android:layout_height="41dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <LinearLayout
@@ -97,7 +97,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_balance_label"
                     android:textColor="#8b8fa3"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
                 <TextView
                     android:id="@+id/widget_remaining"
                     android:layout_width="match_parent"
@@ -106,7 +106,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_dash"
                     android:textColor="#4ade80"
-                    android:textSize="20sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <TextView
@@ -127,7 +127,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_total_label"
                     android:textColor="#8b8fa3"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
                 <TextView
                     android:id="@+id/widget_total_usage"
                     android:layout_width="match_parent"
@@ -136,14 +136,14 @@
                     android:maxLines="1"
                     android:text="@string/widget_dash"
                     android:textColor="#ffb347"
-                    android:textSize="20sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="38dp"
+            android:layout_height="41dp"
             android:layout_marginTop="1dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
@@ -159,7 +159,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_month_label"
                     android:textColor="#8b8fa3"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
                 <TextView
                     android:id="@+id/widget_month"
                     android:layout_width="match_parent"
@@ -168,7 +168,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_dash"
                     android:textColor="#e6e8ec"
-                    android:textSize="20sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <TextView
@@ -189,7 +189,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_today_label"
                     android:textColor="#8b8fa3"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
                 <TextView
                     android:id="@+id/widget_today"
                     android:layout_width="match_parent"
@@ -198,7 +198,7 @@
                     android:maxLines="1"
                     android:text="@string/widget_dash"
                     android:textColor="#e6e8ec"
-                    android:textSize="20sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
