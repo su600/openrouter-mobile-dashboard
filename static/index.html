@@ -405,6 +405,7 @@
   }
   .refresh-btn:hover { background: var(--chip-border); }
   .refresh-btn:active { transform: scale(0.95); }
+  .refresh-btn:disabled { opacity: .65; cursor: wait; }
   .header-toggle-group {
     display: flex;
     align-items: center;
@@ -1036,7 +1037,7 @@
         <span>账户余额概览</span>
         <div class="header-actions">
           <a class="topup-btn" href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener">💳 一键充值</a>
-          <button class="refresh-btn" onclick="loadData()">刷新</button>
+          <button class="refresh-btn" id="account-refresh-btn" onclick="loadData({ force: true })">刷新</button>
         </div>
       </div>
       <div class="topup-tip">ℹ️ 手续费 5.5%（最低$0.8），建议充值≥$20</div>
@@ -1189,6 +1190,7 @@ let dailyChartInstance = null;
 let modelChartInstance = null;
 let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
+let activeSummaryRequest = null;
 let exchangeRate = 7.1;
 let modelPriceData = null;
 let refreshTimer = null;
@@ -1242,24 +1244,55 @@ function getChartColors() {
     : { text: "#8b8fa3", grid: "#262a3a" };
 }
 
-async function loadData() {
+async function loadData(options = {}) {
+  const force = options.force === true;
   const token = getToken();
   if (!token) { showLogin(); return; }
+  if (activeSummaryRequest) {
+    if (!force) return;
+    activeSummaryRequest.abort();
+  }
+
+  const controller = new AbortController();
+  activeSummaryRequest = controller;
+  const refreshButton = document.getElementById("account-refresh-btn");
+  if (force && refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.innerText = "刷新中…";
+  }
+
+  const url = `/api/summary?token=${encodeURIComponent(token)}${getAccountParam()}`
+    + (force ? "&refresh=1" : "");
   try {
-    const resp = await fetch(`/api/summary?token=${encodeURIComponent(token)}${getAccountParam()}`);
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      cache: force ? "no-store" : "default",
+    });
+    if (activeSummaryRequest !== controller) return;
     if (resp.status === 401) {
       clearToken();
       showLogin();
       return;
     }
     const data = await resp.json();
+    if (activeSummaryRequest !== controller) return;
     if (data.error) {
       document.getElementById("update-time").innerText = "加载失败: " + data.error;
       return;
     }
     render(data);
   } catch (e) {
-    document.getElementById("update-time").innerText = "网络错误，请稍后重试";
+    if (e.name !== "AbortError" && activeSummaryRequest === controller) {
+      document.getElementById("update-time").innerText = "网络错误，请稍后重试";
+    }
+  } finally {
+    if (activeSummaryRequest === controller) {
+      activeSummaryRequest = null;
+      if (force && refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerText = "刷新";
+      }
+    }
   }
 }
 

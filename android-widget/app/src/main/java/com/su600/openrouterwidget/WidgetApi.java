@@ -69,9 +69,10 @@ final class WidgetApi {
         return result;
     }
 
-    static Summary summary(String baseUrl, String widgetToken, String accountId) throws Exception {
+    static Summary summary(String baseUrl, String widgetToken, String accountId, boolean force) throws Exception {
         String encoded = URLEncoder.encode(accountId, StandardCharsets.UTF_8.name());
-        JSONObject json = request(baseUrl, "/api/widget/summary?account=" + encoded, "GET", widgetToken, null);
+        String path = "/api/widget/summary?account=" + encoded + (force ? "&refresh=1" : "");
+        JSONObject json = request(baseUrl, path, "GET", widgetToken, null);
         Summary result = new Summary();
         result.accountName = json.optString("account_name", "账户");
         result.generatedAt = json.optLong("generated_at", 0L);

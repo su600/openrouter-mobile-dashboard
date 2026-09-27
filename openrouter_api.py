@@ -548,11 +548,11 @@ _cache_lock = threading.Lock()
 CACHE_TTL = 60
 
 
-def get_summary_cached(account):
+def get_summary_cached(account, force=False):
     now = time.time()
     with _cache_lock:
         entry = _cache.get(account["id"])
-        if entry and (now - entry["ts"]) < CACHE_TTL:
+        if not force and entry and (now - entry["ts"]) < CACHE_TTL:
             return entry["data"]
     data = fetch_openrouter_summary(account)
     with _cache_lock:

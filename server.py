@@ -166,7 +166,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "未配置任何 API Key"}, 400, cache_control="no-store")
                 return
             try:
-                summary = api.get_summary_cached(account)
+                force = qs.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+                summary = api.get_summary_cached(account, force=force)
                 public = accounts_store.public_account(account)
                 self._send_json(
                     {
@@ -210,7 +211,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "未配置任何 API Key"}, 400)
                 return
             try:
-                self._send_json(api.get_summary_cached(account))
+                force = qs.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+                self._send_json(
+                    api.get_summary_cached(account, force=force),
+                    cache_control="no-store" if force else None,
+                )
             except Exception as e:
                 logger.warning("生成 summary 失败: %s", e)
                 self._send_json({"error": str(e)}, 500)

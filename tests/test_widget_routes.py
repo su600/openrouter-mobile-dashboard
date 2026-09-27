@@ -104,6 +104,19 @@ class TestWidgetRoutes(unittest.TestCase):
         self.assertGreaterEqual(len(response["widget_token"]), 40)
         self.widget_token = response["widget_token"]
 
+    def test_widget_manual_refresh_bypasses_summary_cache(self):
+        token = server.widget_auth.get_or_create_widget_token(self.token_path)
+        summary = {
+            "generated_at": 123,
+            "account": {"remaining": 88.0, "total_usage": 12.0, "today_usage": 2.0, "month_usage": 12.0},
+            "exchange_rate": {"usd_to_cny": 7.1},
+            "app_ranking": [],
+        }
+        with patch.object(server.api, "get_summary_cached", return_value=summary) as get_summary:
+            status, _ = self.request("/api/widget/summary?account=acct_test&refresh=1", token=token)
+        self.assertEqual(status, 200)
+        get_summary.assert_called_once_with(self.account, force=True)
+
     def test_widget_accounts_redact_key_fields(self):
         token = server.widget_auth.get_or_create_widget_token(self.token_path)
         status, response = self.request("/api/widget/accounts", token=token)
@@ -132,6 +145,30 @@ class TestWidgetRoutes(unittest.TestCase):
         self.assertNotIn("daily_series", response)
         self.assertNotIn("model_ranking", response)
         self.assertNotIn("sk-or-v1", json.dumps(response))
+
+    def test_manual_dashboard_refresh_bypasses_summary_cache(self):
+        fresh = {
+            "generated_at": 123,
+            "account": {"remaining": 1.0},
+            "exchange_rate": {"usd_to_cny": 7.1},
+        }
+        with patch.object(server.api, "get_summary_cached", return_value=fresh) as get_summary:
+            status, response = self.request(
+                "/api/summary?token=unit-test-admin-token&account=acct_test&refresh=1"
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(response["generated_at"], 123)
+        get_summary.assert_called_once_with(self.account, force=True)
+
+    def test_dashboard_manual_refresh_bypasses_summary_cache(self):
+        summary = {"generated_at": 321, "account": {}, "exchange_rate": {}}
+        with patch.object(server.api, "get_summary_cached", return_value=summary) as get_summary:
+            status, response = self.request(
+                "/api/summary?token=unit-test-admin-token&account=acct_test&refresh=1"
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(response["generated_at"], 321)
+        get_summary.assert_called_once_with(self.account, force=True)
 
     def test_widget_endpoints_reject_admin_token_as_read_token(self):
         status, _ = self.request("/api/widget/accounts", token="unit-test-admin-token")

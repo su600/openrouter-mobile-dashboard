@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.widget.RemoteViews;
 
 import androidx.work.Constraints;
+import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
@@ -31,7 +32,7 @@ public class WidgetProvider extends AppWidgetProvider {
     @Override public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) showLoading(context, manager, id, "正在更新…");
         schedulePeriodicRefresh(context);
-        enqueueRefresh(context);
+        enqueueRefresh(context, false);
     }
 
     @Override public void onReceive(Context context, Intent intent) {
@@ -44,27 +45,32 @@ public class WidgetProvider extends AppWidgetProvider {
             }
             for (int id : ids) showLoading(context, manager, id, "正在更新…");
             schedulePeriodicRefresh(context);
-            enqueueRefresh(context);
+            enqueueRefresh(context, ACTION_REFRESH.equals(intent.getAction()));
             return;
         }
         super.onReceive(context, intent);
     }
 
     static void refreshAll(Context context) {
+        refreshAll(context, false);
+    }
+
+    static void refreshAll(Context context, boolean force) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, WidgetProvider.class));
         if (ids.length == 0) return;
         for (int id : ids) showLoading(context, manager, id, "正在更新…");
         schedulePeriodicRefresh(context);
-        enqueueRefresh(context);
+        enqueueRefresh(context, force);
     }
 
-    private static void enqueueRefresh(Context context) {
+    private static void enqueueRefresh(Context context, boolean force) {
         Constraints network = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(WidgetRefreshWorker.class)
                 .setConstraints(network)
+                .setInputData(new Data.Builder().putBoolean("force_refresh", force).build())
                 .build();
         WorkManager.getInstance(context).enqueueUniqueWork(
                 MANUAL_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, request);

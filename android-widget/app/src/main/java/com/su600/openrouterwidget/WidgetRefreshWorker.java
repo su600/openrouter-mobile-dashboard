@@ -32,7 +32,8 @@ public class WidgetRefreshWorker extends Worker {
                 WidgetProvider.updateAll(context, manager, ids, null, "打开 App 完成小组件设置");
                 return Result.success();
             }
-            WidgetApi.Summary summary = WidgetApi.summary(baseUrl, token, accountId);
+            boolean forceRefresh = getInputData().getBoolean("force_refresh", false);
+            WidgetApi.Summary summary = WidgetApi.summary(baseUrl, token, accountId, forceRefresh);
             WidgetProvider.updateAll(context, manager, ids, summary, null);
         } catch (Exception error) {
             WidgetProvider.updateAll(context, manager, ids, null, explain(error));

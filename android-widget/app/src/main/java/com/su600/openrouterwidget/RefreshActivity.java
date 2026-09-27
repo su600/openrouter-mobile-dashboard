@@ -7,7 +7,7 @@ import android.os.Bundle;
 public class RefreshActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        WidgetProvider.refreshAll(getApplicationContext());
+        WidgetProvider.refreshAll(getApplicationContext(), true);
         finish();
     }
 }
