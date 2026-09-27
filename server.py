@@ -22,6 +22,7 @@ from config import DASHBOARD_TOKEN, PORT, STATIC_DIR
 import accounts as accounts_store
 import openrouter_api as api
 from logging_setup import setup_logging, get_logger
+import widget_auth
 
 logger = get_logger(__name__)
 
@@ -53,11 +54,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_json(self, obj, code=200):
+    def _send_json(self, obj, code=200, cache_control=None):
         self._write_body(
             json.dumps(obj, ensure_ascii=False).encode("utf-8"),
             "application/json; charset=utf-8",
             code=code,
+            cache_control=cache_control,
         )
 
     def _send_file(self, path, content_type, cache_control=None):
@@ -98,6 +100,58 @@ class Handler(BaseHTTPRequestHandler):
         # 健康检查：无需鉴权，供探活使用
         if parsed.path == "/healthz":
             self._send_json({"ok": True, "time": int(time.time())})
+            return
+
+        if parsed.path == "/api/widget/accounts":
+            if not widget_auth.widget_authorized(self.headers.get("Authorization")):
+                return self._unauthorized()
+            data = accounts_store.load_accounts()
+            public_accounts = [accounts_store.public_account(a) for a in data["accounts"]]
+            self._send_json(
+                {
+                    "accounts": [
+                        {
+                            "id": account["id"],
+                            "name": account["name"],
+                            "access_status": account["access_status"],
+                        }
+                        for account in public_accounts
+                    ],
+                    "active": data.get("active"),
+                },
+                cache_control="no-store",
+            )
+            return
+
+        if parsed.path == "/api/widget/summary":
+            if not widget_auth.widget_authorized(self.headers.get("Authorization")):
+                return self._unauthorized()
+            account = accounts_store.get_account(qs.get("account", [None])[0])
+            if not account:
+                self._send_json({"error": "未配置任何 API Key"}, 400, cache_control="no-store")
+                return
+            try:
+                summary = api.get_summary_cached(account)
+                public = accounts_store.public_account(account)
+                self._send_json(
+                    {
+                        "generated_at": summary.get("generated_at"),
+                        "account_id": account["id"],
+                        "account_name": account.get("name") or account["id"],
+                        "access_status": public["access_status"],
+                        "account": {
+                            "remaining": summary.get("account", {}).get("remaining"),
+                            "total_usage": summary.get("account", {}).get("total_usage"),
+                            "today_usage": summary.get("account", {}).get("today_usage"),
+                            "month_usage": summary.get("account", {}).get("month_usage"),
+                        },
+                        "exchange_rate": summary.get("exchange_rate", {}),
+                    },
+                    cache_control="no-store",
+                )
+            except Exception as e:
+                logger.warning("生成 widget summary 失败: %s", e)
+                self._send_json({"error": "暂时无法获取账户汇总"}, 500, cache_control="no-store")
             return
 
         if parsed.path == "/api/accounts":
@@ -216,6 +270,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         qs = parse_qs(parsed.query)
+
+        if parsed.path == "/api/widget/session":
+            if not widget_auth.dashboard_authorized(
+                self.headers.get("Authorization"), DASHBOARD_TOKEN
+            ):
+                return self._unauthorized()
+            self._send_json(
+                {"widget_token": widget_auth.get_or_create_widget_token()},
+                cache_control="no-store",
+            )
+            return
+
         if not self._authorized(qs):
             return self._unauthorized()
 

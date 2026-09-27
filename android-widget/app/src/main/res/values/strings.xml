@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenRouter 小组件</string>
+    <string name="widget_description">余额、累计消费、本月消费和今日 UTC 消费</string>
+    <string name="widget_overview_title">账户余额概览</string>
+    <string name="widget_setup_prompt">未连接</string>
+    <string name="widget_topup">💳 一键充值</string>
+    <string name="widget_topup_description">打开 OpenRouter 充值页面</string>
+    <string name="widget_refresh">刷新</string>
+    <string name="widget_refresh_description">刷新账户数据</string>
+    <string name="widget_balance_label">剩余额度 (CNY)</string>
+    <string name="widget_total_label">累计消费 (CNY)</string>
+    <string name="widget_month_label">本月累计消费 (CNY)</string>
+    <string name="widget_today_label">今日消费 · UTC (CNY)</string>
+    <string name="widget_dash">—</string>
+</resources>

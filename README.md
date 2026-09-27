@@ -150,7 +150,24 @@ sudo systemctl enable --now or-dashboard.service
 
 安装后即可像原生 App 一样在主屏幕直接打开，无浏览器地址栏。
 
-### 8. （可选）运行单元测试
+### 8. Android 桌面小组件
+
+原生 Android 小组件源码位于 `android-widget/`，按约 5×2 网格尺寸呈现，保留账户名、充值/刷新按钮及余额、累计消费、本月消费、UTC 今日消费；静态说明不占用小组件空间。首次打开 App 时填写看板 URL 和现有看板访问口令；App 通过 `/api/widget/session` 换取**只读凭证**，只读凭证使用 Android Keystore 加密保存。OpenRouter API Key 不会进入 APK 或手机。
+
+**预编译 APK**：[下载 OpenRouter 账户桌面小组件 v1.0.5](android-widget/releases/openrouter-account-widget-v1.0.5.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`90bc5d3579cd39e518bcb3ee27e73fce7a8044a1b2695b841f68ff25a666ed7a`。
+
+从源码构建：
+
+```bash
+cd android-widget
+./gradlew assembleDebug
+```
+
+调试 APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。安装后，在 Android 桌面添加「OpenRouter 账户」小组件；点击卡片打开设置，点「刷新」按钮手动更新。WorkManager 每 30 分钟请求一次后台刷新，具体执行时间由 Android 调度，可能延后。
+
+部署公网时请用 HTTPS 或受信任的 VPN；不要在开放网络上用 HTTP 发送首次登录口令。
+
+### 9. （可选）运行单元测试
 
 ```bash
 python3 -m unittest discover -s tests -t . -v
@@ -165,6 +182,9 @@ openrouter-dashboard/
 ├── server.py              # HTTP 入口：路由 / 鉴权 / gzip+缓存 / 静态资源（标准库 http.server，无框架）
 ├── openrouter_api.py      # OpenRouter 上游调用与聚合（Session 连接池、并发、缓存、优雅降级）
 ├── accounts.py            # 多账户（API Key）存储
+├── widget_auth.py          # Android 小组件只读凭证交换与校验
+├── widget_readonly_token  # 运行时只读凭证（自动生成、600 权限、不会被提交）
+├── android-widget/        # 原生 Android 桌面小组件源码
 ├── baseline.py            # 每日 0 点基准与逐日消费推算
 ├── config.py              # 配置与路径常量（config.json 缺失时回退默认值，便于导入/测试）
 ├── logging_setup.py       # 统一日志（输出 stderr，systemd/journald 可见）
@@ -206,7 +226,9 @@ openrouter-dashboard/
    - `POST /api/accounts?token=xxx` ：新增账户（body: `{"name", "api_key"}`），会先调用 OpenRouter `/key` 校验 Key 有效性
    - `POST /api/accounts/rename?token=xxx` ：重命名账户（body: `{"id", "name"}`）
    - `DELETE /api/accounts?id=xxx&token=xxx` ：删除账户（至少保留一个）
-   - `GET /api/summary?token=xxx&account=xxx` ：聚合指定账户的 OpenRouter 官方 API（`/credits`、`/key`、`/activity`、`/analytics/query`）数据后返回 JSON（按账户分别缓存 60 秒）
+   - `GET /api/summary?token=xxx&account=xxx` ：聚合指定账户的 OpenRouter 官方 API 数据（按账户分别缓存 60 秒）
+   - `POST /api/widget/session` ：通过 `Authorization: Bearer <dashboard_token>` 换取独立只读凭证
+   - `GET /api/widget/accounts`、`GET /api/widget/summary?account=xxx` ：只读凭证专用接口，不返回任何 API Key 或管理操作
    - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
    - `GET /api/model_prices?token=xxx[&refresh=1]` ：抓取 OpenRouter 模型价格，返回 GPT / Claude 两大家族「最新一代」旗舰模型的输入/输出价格（单位 USD / 百万 tokens），供底部对比卡片展示（1 小时缓存；带 `refresh=1` 时跳过缓存强制重取）
    - `GET /healthz` ：健康检查，无需鉴权，返回 `{"ok": true, "time": ...}`，供 systemd / 监控探活
@@ -220,7 +242,7 @@ openrouter-dashboard/
 
 ## ⚠️ 安全提示
 
-- 请勿将填好真实 Key 的 `config.json` 或运行时生成的 `accounts.json` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
+- 请勿将填好真实 Key 的 `config.json` 或运行时生成的 `accounts.json` / `widget_readonly_token` 提交到任何 Git 仓库（本仓库已在 `.gitignore` 中屏蔽）
 - 建议将 `dashboard_token` 设置为足够随机、不易猜测的字符串
 - 如果部署在公网服务器，务必通过 `dashboard_token` 或 `OR_DASHBOARD_TOKEN` 设置强访问口令，并建议额外配置 HTTPS（可用 Nginx/Caddy 反向代理）以及防火墙限制访问来源
 

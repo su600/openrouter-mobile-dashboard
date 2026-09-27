@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.su600.openrouterwidget'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.su600.openrouterwidget'
+        minSdk 26
+        targetSdk 35
+        versionCode 6
+        versionName '1.0.5'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.work:work-runtime:2.12.0'
+}

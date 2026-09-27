@@ -11,6 +11,7 @@ import json
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ACCOUNTS_PATH = os.path.join(BASE_DIR, "accounts.json")
+WIDGET_TOKEN_PATH = os.path.join(BASE_DIR, "widget_readonly_token")
 BASELINE_PATH = os.path.join(BASE_DIR, "daily_baseline.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 

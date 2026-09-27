@@ -1,6 +1,7 @@
 # 真实配置与运行时数据，请勿提交
 config.json
 accounts.json
+widget_readonly_token
 daily_baseline.json
 
 # Python
