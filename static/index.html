@@ -1255,6 +1255,7 @@ async function loadData(options = {}) {
 
   const controller = new AbortController();
   activeSummaryRequest = controller;
+  const requestTimeout = window.setTimeout(() => controller.abort(), 30000);
   const refreshButton = document.getElementById("account-refresh-btn");
   if (force && refreshButton) {
     refreshButton.disabled = true;
@@ -1282,10 +1283,13 @@ async function loadData(options = {}) {
     }
     render(data);
   } catch (e) {
-    if (e.name !== "AbortError" && activeSummaryRequest === controller) {
-      document.getElementById("update-time").innerText = "网络错误，请稍后重试";
+    if (activeSummaryRequest === controller) {
+      document.getElementById("update-time").innerText = e.name === "AbortError"
+        ? "请求超时，请检查网络后重试"
+        : "网络错误，请稍后重试";
     }
   } finally {
+    window.clearTimeout(requestTimeout);
     if (activeSummaryRequest === controller) {
       activeSummaryRequest = null;
       if (force && refreshButton) {
@@ -1861,8 +1865,10 @@ function renderModelPrices() {
 async function loadAccounts() {
   const token = getToken();
   if (!token) return;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 10000);
   try {
-    const resp = await fetch(`/api/accounts?token=${encodeURIComponent(token)}`);
+    const resp = await fetch(`/api/accounts?token=${encodeURIComponent(token)}`, { signal: controller.signal });
     if (!resp.ok) return;
     const data = await resp.json();
     accounts = data.accounts || [];
@@ -1876,6 +1882,8 @@ async function loadAccounts() {
     renderAccountSelect();
   } catch (e) {
     // 静默失败，不影响主看板
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
@@ -2094,7 +2102,8 @@ async function init() {
     showLogin();
   } else {
     showDashboard();
-    await loadAccounts();
+    // Do not hold the main dashboard behind account-list network latency.
+    loadAccounts();
     loadData();
     loadNewsTicker();
     loadModelPrices();

@@ -30,4 +30,7 @@
     <string name="news_model_placeholder">最新模型</string>
     <string name="news_date_placeholder">—</string>
     <string name="news_logo_description">厂商 Logo</string>
+    <string name="webview_loading">正在连接看板…</string>
+    <string name="webview_timeout_retry">加载超时，点击此处重试</string>
+    <string name="webview_error_retry">%1$s\n点击此处重试</string>
 </resources>

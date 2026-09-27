@@ -33,10 +33,13 @@ public class NewsRefreshWorker extends Worker {
             }
             List<WidgetApi.NewsItem> news = WidgetApi.latestNews(baseUrl, token);
             NewsWidgetProvider.showNews(context, manager, ids, news, null);
+            return Result.success();
         } catch (Exception error) {
             NewsWidgetProvider.showNews(context, manager, ids, null, explain(error));
+            String message = error.getMessage();
+            if (message != null && message.contains("401")) return Result.success();
+            return Result.retry();
         }
-        return Result.success();
     }
 
     private static String explain(Throwable error) {

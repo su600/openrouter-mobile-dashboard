@@ -51,5 +51,9 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/news_widget_info" />
         </receiver>
+        <service
+            android:name=".NewsRemoteViewsService"
+            android:exported="true"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 </manifest>

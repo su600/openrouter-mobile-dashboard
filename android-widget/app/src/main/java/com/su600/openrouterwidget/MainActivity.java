@@ -8,6 +8,8 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.webkit.JavascriptInterface;
@@ -34,6 +36,21 @@ public class MainActivity extends Activity {
     private FrameLayout root;
     private WebView webView;
     private ProgressBar progressBar;
+    private TextView loadingStatus;
+    private boolean loadTimedOut;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable loadTimeout = () -> {
+        if (progressBar != null && progressBar.getVisibility() == View.VISIBLE) {
+            loadTimedOut = true;
+            progressBar.setVisibility(View.GONE);
+            if (webView != null) webView.setAlpha(1f);
+            if (loadingStatus != null) {
+                loadingStatus.setText(R.string.webview_timeout_retry);
+                loadingStatus.setVisibility(View.VISIBLE);
+                loadingStatus.setOnClickListener(view -> loadDashboard());
+            }
+        }
+    };
     private String dashboardUrl;
     private volatile String dashboardToken;
     private boolean settingsOpen;
@@ -42,6 +59,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         if (readCredentials()) {
             WidgetProvider.refreshAll(this);
+            NewsWidgetProvider.refreshAll(this);
             buildWebView();
             loadDashboard();
         } else {
@@ -100,6 +118,17 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams progressLp = new FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER);
         root.addView(progressBar, progressLp);
 
+        loadingStatus = new TextView(this);
+        loadingStatus.setTextColor(Color.rgb(139, 143, 163));
+        loadingStatus.setTextSize(13);
+        loadingStatus.setGravity(Gravity.CENTER);
+        loadingStatus.setVisibility(View.GONE);
+        FrameLayout.LayoutParams statusLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER);
+        statusLp.setMargins(dp(24), dp(58), dp(24), 0);
+        root.addView(loadingStatus, statusLp);
+
         TextView settingsButton = new TextView(this);
         settingsButton.setText("⚙");
         settingsButton.setTextSize(21);
@@ -124,8 +153,8 @@ public class MainActivity extends Activity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view, int progress) {
-                if (progress < 100) progressBar.setVisibility(View.VISIBLE);
-                else revealDashboard();
+                if (progress < 100 && !loadTimedOut) progressBar.setVisibility(View.VISIBLE);
+                else if (progress >= 100) revealDashboard();
             }
         });
         webView.setWebViewClient(new WebViewClient() {
@@ -144,17 +173,21 @@ public class MainActivity extends Activity {
             @Override public void onReceivedError(WebView view, WebResourceRequest request,
                                                   android.webkit.WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    revealDashboard();
-                    Toast.makeText(MainActivity.this, "看板加载失败：" + error.getDescription(),
-                            Toast.LENGTH_LONG).show();
+                    showLoadError("网络错误：" + error.getDescription());
+                }
+            }
+
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                                       android.webkit.WebResourceResponse response) {
+                if (request.isForMainFrame() && response.getStatusCode() >= 400) {
+                    showLoadError("服务器返回 HTTP " + response.getStatusCode());
                 }
             }
 
             @Override public void onReceivedSslError(WebView view, SslErrorHandler handler,
                                                      android.net.http.SslError error) {
                 handler.cancel();
-                revealDashboard();
-                Toast.makeText(MainActivity.this, "看板 HTTPS 证书验证失败", Toast.LENGTH_LONG).show();
+                showLoadError("HTTPS 证书验证失败");
             }
         });
         setContentView(root);
@@ -191,16 +224,37 @@ public class MainActivity extends Activity {
             openSettings();
             return;
         }
+        uiHandler.removeCallbacks(loadTimeout);
+        loadTimedOut = false;
         webView.animate().cancel();
         webView.setAlpha(0f);
         progressBar.setVisibility(View.VISIBLE);
+        loadingStatus.setText(R.string.webview_loading);
+        loadingStatus.setVisibility(View.VISIBLE);
+        loadingStatus.setOnClickListener(null);
+        uiHandler.postDelayed(loadTimeout, 20000);
         webView.loadUrl(dashboardUrl);
     }
 
     private void revealDashboard() {
+        uiHandler.removeCallbacks(loadTimeout);
+        loadTimedOut = false;
         if (progressBar != null) progressBar.setVisibility(View.GONE);
+        if (loadingStatus != null) loadingStatus.setVisibility(View.GONE);
         if (webView != null && webView.getAlpha() < 1f) {
             webView.animate().alpha(1f).setDuration(180).start();
+        }
+    }
+
+    private void showLoadError(String message) {
+        uiHandler.removeCallbacks(loadTimeout);
+        loadTimedOut = true;
+        if (progressBar != null) progressBar.setVisibility(View.GONE);
+        if (webView != null) webView.setAlpha(1f);
+        if (loadingStatus != null) {
+            loadingStatus.setText(getString(R.string.webview_error_retry, message));
+            loadingStatus.setVisibility(View.VISIBLE);
+            loadingStatus.setOnClickListener(view -> loadDashboard());
         }
     }
 
@@ -231,11 +285,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (webView != null) {
-            webView.onResume();
-            webView.evaluateJavascript(
-                    "if(typeof loadData==='function'){loadData();startAutoRefresh();}", null);
-        }
+        if (webView != null) webView.onResume();
     }
 
     @Override public void onBackPressed() {
@@ -244,6 +294,7 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        uiHandler.removeCallbacks(loadTimeout);
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();
