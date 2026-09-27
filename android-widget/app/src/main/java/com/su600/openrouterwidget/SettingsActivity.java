@@ -253,11 +253,17 @@ public class SettingsActivity extends Activity {
         WidgetApi.Account account = (WidgetApi.Account) accountSpinner.getSelectedItem();
         if (account == null) { setMessage("请选择账户。", true); return; }
         try {
+            String savedPassword = SecretStore.readDashboardToken(this);
+            if (savedPassword == null || savedPassword.isEmpty()) {
+                setMessage("请输入看板访问口令并连接一次，之后会加密记住。", true);
+                return;
+            }
             SecretStore.saveToken(this, pendingWidgetToken);
             WidgetStore.save(this, pendingBaseUrl, account.id);
             WidgetProvider.refreshAll(this);
-            setMessage("已保存。返回桌面添加小组件即可。", false);
-            Toast.makeText(this, "小组件设置已保存", Toast.LENGTH_SHORT).show();
+            setResult(Activity.RESULT_OK);
+            Toast.makeText(this, "看板和小组件设置已保存", Toast.LENGTH_SHORT).show();
+            finish();
         } catch (Exception e) {
             setMessage("保存失败：" + e.getMessage(), true);
         }

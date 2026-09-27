@@ -1,18 +1,18 @@
-# OpenRouter Android home-screen widget
+# OpenRouter Android app and home-screen widget
 
-A lightweight native AppWidget for the OpenRouter account dashboard. It follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), with an approximately 5×2 layout: an account header and recharge/refresh actions above a 2×2 grid for remaining balance, cumulative spend, monthly spend, and UTC today's spend. Static fee guidance is omitted; a connection diagnostic appears only when refresh fails.
+The Android app opens the existing responsive dashboard in a WebView and bundles its native home-screen widget. The app icon and widget use the same logo. The widget follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), with an approximately 5×2 layout showing remaining balance, cumulative spend, monthly spend, and UTC today's spend. Static fee guidance is omitted; a connection diagnostic appears only when refresh fails.
 
-**Prebuilt APK v1.0.7:** [Download](releases/openrouter-account-widget-v1.0.7.apk). This debug-signed APK is for direct installation, not Google Play distribution.
+**Prebuilt APK v1.0.8:** [Download](releases/openrouter-account-widget-v1.0.8.apk). This debug-signed APK is for direct installation, not Google Play distribution.
 
 ## Setup
 
-1. Install the APK and open **OpenRouter 小组件**.
-2. Enter the dashboard base URL (for example `https://dashboard.example.com`) and the same access password used by the dashboard.
-3. Tap **连接并读取账户**. The app exchanges the dashboard credential for a dedicated read-only token; both credentials are encrypted at rest with Android Keystore so you won't need to retype the dashboard password after reopening the app.
-4. Select an account and save. Add the widget from Android's home-screen widget picker.
-5. Tap **刷新** for an immediate refresh. Manual and periodic updates run through WorkManager rather than the short-lived widget broadcast; periodic work is requested every 30 minutes, though Android may defer it.
+1. Install the APK and open **OpenRouter 账户看板**.
+2. On first launch, enter the dashboard base URL and access password, then tap **连接并读取账户**.
+3. Select an account and save. The app then opens the full dashboard; saved credentials are restored automatically next time.
+4. Add **OpenRouter 账户小组件** from Android's home-screen widget picker. Tap the card data or title to return to the app.
+5. Tap **刷新** for an immediate refresh. The button starts a dedicated refresh activity and WorkManager job; periodic work is requested every 30 minutes, though Android may defer it.
 
-The dashboard password and read-only token are encrypted at rest with Android Keystore. The APK contains no embedded dashboard/OpenRouter credentials. Use HTTPS or a trusted VPN when setting up remotely; avoid sending the dashboard password over public HTTP.
+The dashboard password and read-only token are encrypted at rest with Android Keystore; the WebView's localStorage copy of the login token is cleared when the app backgrounds. The APK contains no embedded dashboard/OpenRouter credentials. Use HTTPS or a trusted VPN when setting up remotely; avoid sending the dashboard password over public HTTP.
 
 ## Build
 

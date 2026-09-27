@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OpenRouter 小组件</string>
+    <string name="app_name">OpenRouter 账户看板</string>
+    <string name="widget_name">OpenRouter 账户小组件</string>
     <string name="widget_description">余额、累计消费、本月消费和今日 UTC 消费</string>
     <string name="widget_overview_title">账户余额概览</string>
     <string name="widget_setup_prompt">未连接</string>

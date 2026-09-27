@@ -132,7 +132,7 @@ public class WidgetProvider extends AppWidgetProvider {
 
     private static RemoteViews baseViews(Context context) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_account);
-        Intent open = new Intent(context, SettingsActivity.class);
+        Intent open = new Intent(context, MainActivity.class);
         PendingIntent openPending = PendingIntent.getActivity(context, 20, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_title, openPending);

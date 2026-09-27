@@ -150,11 +150,11 @@ sudo systemctl enable --now or-dashboard.service
 
 安装后即可像原生 App 一样在主屏幕直接打开，无浏览器地址栏。
 
-### 8. Android 桌面小组件
+### 8. Android App 与桌面小组件
 
-原生 Android 小组件源码位于 `android-widget/`，按约 5×2 网格尺寸呈现，保留账户名、充值/刷新按钮及余额、累计消费、本月消费、UTC 今日消费；静态说明不占用小组件空间。首次打开 App 时填写看板 URL 和现有看板访问口令；App 通过 `/api/widget/session` 换取**只读凭证**，并将看板口令与只读凭证都用 Android Keystore 加密持久化。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，小组件约为 5×2，展示余额、累计消费、本月消费与 UTC 今日消费。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；口令与小组件只读凭证使用 Android Keystore 加密保存，WebView 退出前会清除其本地登录副本。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户桌面小组件 v1.0.7](android-widget/releases/openrouter-account-widget-v1.0.7.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`255e8afc59dc0be5dffe5a83c6b188a9c3eea33c0780780769925fbcfd5dbb52`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.8](android-widget/releases/openrouter-account-widget-v1.0.8.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`a9bcbdcd0061b9c95ed8a634b05cc1668429d1b27fb23b9a14cfc98dd7eb9ff7`。
 
 从源码构建：
 
@@ -163,9 +163,9 @@ cd android-widget
 ./gradlew assembleDebug
 ```
 
-调试 APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。安装后，在 Android 桌面添加「OpenRouter 账户」小组件；点击卡片打开设置，点「刷新」按钮手动更新。WorkManager 每 30 分钟请求一次后台刷新，具体执行时间由 Android 调度，可能延后。
+首次打开 App 配置看板地址与访问口令；桌面长按 → 小组件 → 添加「OpenRouter 账户小组件」。刷新按钮启动后台任务，WorkManager 每 30 分钟请求一次自动刷新，具体执行时间由 Android 调度，可能延后。
 
-部署公网时请用 HTTPS 或受信任的 VPN；不要在开放网络上用 HTTP 发送首次登录口令。
+部署公网时请用 HTTPS 或受信任的 VPN；不要在开放网络上通过 HTTP 发送看板口令。
 
 ### 9. （可选）运行单元测试
 
