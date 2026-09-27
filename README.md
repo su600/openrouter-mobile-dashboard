@@ -7,6 +7,8 @@
 > 🤖 本仓库由 **[Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent)**（通过 [OpenRouter](https://openrouter.ai) 调用大模型）自动生成与维护，从需求沟通、代码编写到部署上线全流程由 AI Agent 完成。
 >
 > 📌 **模型变更记录**：项目初始版本及早期迭代由 **`anthropic/claude-sonnet-5`** 驱动；2026-09 的多账户（多 API Key）与「旗舰模型价格对比」卡片等功能迭代由 **`deepseek/deepseek-v4.1-flash`** 完成；本次（2026-09-25）GitHub 提交记录核对与 README 更新使用 **`openai/gpt-6-luna`**。
+>
+> 🧭 **从零复刻**：架构、接口、计算逻辑、前端交互、测试和部署步骤见 [完整复刻指南](REPLICATION_GUIDE.md)。
 
 ## ✨ 功能特性
 
@@ -34,7 +36,7 @@
 - 🔑 **多账户 / 多 API Key 管理**：可在看板内添加多个 OpenRouter API Key，顶部下拉一键切换，分别查看不同账户的余额、消费、App 分布与模型排行；添加时自动调用官方接口校验 Key 有效性，支持重命名与删除；Key 仅保存在服务端 `accounts.json`，前端只能看到脱敏掩码（如 `sk-or-v1-b...d416`）
 - ⚡ **性能优化**：后端**全局复用 `requests.Session`**（连接池，省去重复 TCP/TLS 握手）+ **并发拉取**上游 6 个接口（总耗时由最慢一个决定）；对 HTML/JSON/SVG 等文本响应自动 **gzip**（首页 54KB → 13KB，约 -76%）；静态资源设置合理缓存策略（图片等 `max-age=86400`，HTML/JS/JSON `no-cache`）+ `Vary: Accept-Encoding`
 - 🩺 **健康检查与日志**：内置 `/healthz`（无需鉴权，供 systemd/监控探活）；统一日志输出到 stderr，上游失败等告警可通过 `journalctl -u or-dashboard -f` 查看
-- 🧪 **单元测试**：`tests/` 下提供 23 个纯函数用例（基准推算 / 旗舰模型筛选 / 账户脱敏），无需网络即可运行
+- 🧪 **单元测试**：`tests/` 下提供 24 个纯函数用例（基准推算 / 旗舰模型筛选 / 账户脱敏），无需网络即可运行
 - ⚡ **零依赖前端**：纯 HTML + Chart.js（CDN），无需构建工具
 
 ## 📸 界面预览
@@ -254,7 +256,7 @@ openrouter-dashboard/
 - ⚡ 性能优化：后端全局复用 `requests.Session`（连接池）；`/api/summary` 的 6 个上游请求改为**并发**拉取（冷启动由串行数秒降到 ~0.7s）；文本响应自动 **gzip** + 静态资源缓存头
 - 🔋 页面切到后台**暂停自动刷新**，回到前台立即刷新一次再恢复
 - 🛡️ 上游异常**降级**：credits/key/activity 任一失败时，数值显示“—”、并在更新时间旁标注失败项，不再整页 500
-- 🧩 重构：拆分为 `server / openrouter_api / accounts / baseline / config / logging_setup` 模块；新增 **23 个单元测试**（`tests/`）
+- 🧩 重构：拆分为 `server / openrouter_api / accounts / baseline / config / logging_setup` 模块；新增 **24 个单元测试**（`tests/`）
 - 🩺 新增 `/healthz` 健康检查；统一日志输出到 stderr（`journalctl -u or-dashboard`）
 - 🔒 静态资源路径校验改用 `os.path.commonpath`
 
