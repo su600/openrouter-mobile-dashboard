@@ -1182,7 +1182,6 @@ function toggleCurrency() {
   btn.innerText = currentCurrency;
   btn.classList.toggle("active", currentCurrency === "CNY");
   if (lastData) render(lastData);
-  renderModelPrices();
 }
 
 function applyTheme(theme) {
@@ -1699,14 +1698,12 @@ function escapeHtml(s) {
 
 // ===== 旗舰模型价格对比（GPT vs Claude）=====
 function fmtPerMillion(v) {
-  if (v === null || v === undefined) return "—";
-  const rate = currentCurrency === "CNY" ? exchangeRate : 1;
-  const symbol = currentCurrency === "CNY" ? "￥" : "$";
-  const val = v * rate;
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
+  const val = Number(v);
   let decimals = 2;
   if (val < 1) decimals = 3;
   if (val < 0.1) decimals = 4;
-  return symbol + val.toFixed(decimals);
+  return "$" + val.toFixed(decimals);
 }
 
 async function loadModelPrices(force) {
@@ -1753,7 +1750,7 @@ function renderModelPrices() {
   const box = document.getElementById("price-compare");
   if (!box) return;
   const noteEl = document.getElementById("price-unit-note");
-  if (noteEl) noteEl.innerText = (currentCurrency === "CNY" ? "CNY" : "USD") + " / 百万 tokens";
+  if (noteEl) noteEl.innerText = "USD / 百万 tokens";
   if (!modelPriceData || !modelPriceData.families || modelPriceData.families.length === 0) {
     box.innerHTML = '<div class="price-col-empty">暂无价格数据</div>';
     return;
