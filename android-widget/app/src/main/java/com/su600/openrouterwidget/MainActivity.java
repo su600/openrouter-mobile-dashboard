@@ -135,8 +135,18 @@ public class MainActivity extends Activity {
 
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
                 if (isDashboardOrigin(Uri.parse(url)) && !tokenInjected && !tokenInjectionPending) {
                     injectDashboardToken();
+                }
+            }
+
+            @Override public void onReceivedError(WebView view, WebResourceRequest request,
+                                                  android.webkit.WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    if (progressBar != null) progressBar.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "看板加载失败：" + error.getDescription(),
+                            Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -187,12 +197,14 @@ public class MainActivity extends Activity {
 
     private void injectDashboardToken() {
         tokenInjectionPending = true;
-        String script = "localStorage.setItem('or_dashboard_token',"
-                + JSONObject.quote(dashboardToken) + ");";
+        String script = "(function(){var key='or_dashboard_token';var token="
+                + JSONObject.quote(dashboardToken)
+                + ";if(localStorage.getItem(key)!==token){localStorage.setItem(key,token);"
+                + "if(typeof init==='function')init();}})();";
         webView.evaluateJavascript(script, result -> {
             tokenInjectionPending = false;
             tokenInjected = true;
-            if (webView != null) webView.reload();
+            if (progressBar != null) progressBar.setVisibility(View.GONE);
         });
     }
 
