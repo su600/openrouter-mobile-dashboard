@@ -6,12 +6,13 @@ import unittest
 import openrouter_api as api
 
 
-def M(model_id, name, prompt, completion, created=0, ctx=1000):
+def M(model_id, name, prompt, completion, created=0, ctx=1000, intelligence_index=None):
     return {
         "id": model_id,
         "name": name,
         "pricing": {"prompt": prompt, "completion": completion},
         "context_length": ctx,
+        "benchmarks": {"artificial_analysis": {"intelligence_index": intelligence_index}},
         "created": created,
     }
 
@@ -41,7 +42,7 @@ class TestBuildFlagshipFamilies(unittest.TestCase):
     def setUp(self):
         self.models = [
             # GPT-6（最新代）：保留基础版，排除 Pro / batch / 别名
-            M("openai/gpt-6-astra", "OpenAI: GPT-6 Astra", "1e-5", "5e-5", created=10),
+            M("openai/gpt-6-astra", "OpenAI: GPT-6 Astra", "1e-5", "5e-5", created=10, intelligence_index=52.7),
             M("openai/gpt-6-astra-pro", "OpenAI: GPT-6 Astra Pro", "1e-5", "5e-5", created=11),
             M("openai/gpt-6-sol", "OpenAI: GPT-6 Sol", "2e-6", "1e-5", created=12),
             M("openai/gpt-6-sol:batch", "OpenAI: GPT-6 Sol (batch)", "1e-6", "5e-6", created=12),
@@ -73,6 +74,12 @@ class TestBuildFlagshipFamilies(unittest.TestCase):
             [m["name"] for m in claude["models"]],
             ["Claude Opus 5.5", "Claude Sonnet 5"],
         )
+
+    def test_intelligence_index_is_included_and_missing_value_is_none(self):
+        gpt = {f["key"]: f for f in api.build_flagship_families(self.models)}["gpt"]
+        scores = {model["id"]: model["intelligence_index"] for model in gpt["models"]}
+        self.assertEqual(scores["openai/gpt-6-astra"], 52.7)
+        self.assertIsNone(scores["openai/gpt-6-sol"])
 
     def test_empty_models(self):
         self.assertEqual(api.build_flagship_families([]), [])

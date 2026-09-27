@@ -13,6 +13,7 @@
 """
 import time
 import re
+import math
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -159,6 +160,16 @@ def _price_per_million(value):
         return None
 
 
+def _intelligence_index(model):
+    """读取 OpenRouter benchmarks 中的 Artificial Analysis Intelligence Index。"""
+    benchmarks = model.get("benchmarks") or {}
+    artificial_analysis = benchmarks.get("artificial_analysis") or {}
+    value = artificial_analysis.get("intelligence_index")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None
+    return float(value)
+
+
 def _model_major_version(model_id, family):
     """从模型 ID 解析大版本号：gpt-6-astra -> 6；claude-opus-5.5 -> 5。"""
     if family == "gpt":
@@ -216,6 +227,7 @@ def build_flagship_families(models):
                     "output": _price_per_million(pricing.get("completion")),
                     "cache_read": _price_per_million(pricing.get("input_cache_read")),
                     "context_length": m.get("context_length"),
+                    "intelligence_index": _intelligence_index(m),
                     "created": m.get("created", 0),
                 }
             )

@@ -901,14 +901,28 @@
     letter-spacing: 0.5px;
     margin-right: 3px;
   }
+  .price-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    min-width: 0;
+    margin-top: 2px;
+  }
   .price-row-ctx {
     font-size: 10px;
     color: var(--text-faint);
-    margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .price-row-intelligence {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .price-row-intelligence b { color: var(--accent); font-weight: 700; }
   .price-row-price {
     text-align: right;
     flex-shrink: 0;
@@ -1746,6 +1760,7 @@ function renderModelPrices() {
     const rows = (fam.models || []).map((m, idx) => {
       const icon = getModelIcon(m.id);
       const ctx = m.context_length ? `${formatTokens(m.context_length)} 上下文` : "";
+      const intelligenceIndex = Number.isFinite(m.intelligence_index) ? m.intelligence_index.toFixed(1) : "—";
       const badge = idx === 0 ? '<span class="flag-badge">旗舰</span>' : "";
       const modelUrl = openRouterModelUrl(m.id);
       const modelName = modelUrl
@@ -1757,7 +1772,10 @@ function renderModelPrices() {
           ${icon}
           <div style="min-width:0;">
             <div class="name-txt">${badge}${modelName}</div>
-            ${ctx ? `<div class="price-row-ctx">${ctx}</div>` : ""}
+            <div class="price-row-meta">
+              <span class="price-row-intelligence" title="OpenRouter benchmarks · Artificial Analysis Intelligence Index（0–100）">Intelligence Index <b>${intelligenceIndex}</b></span>
+              ${ctx ? `<span class="price-row-ctx">${ctx}</span>` : ""}
+            </div>
           </div>
         </div>
         <div class="price-row-price">
