@@ -152,7 +152,7 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android App 与桌面小组件
 
-`android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；新品组件为 4×1，使用基础 RemoteViews 文本/图片视图展示多厂商模型、发布日期及近 7 天新品标识，避免动态子视图、跑马灯方法和自动轮播绑定导致启动器加载失败。App 图标与两个组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；App 用量名称加粗、金额 18sp 加粗，并与上方消费区留出额外间距。新品组件为 4×1，使用基础 RemoteViews 文本/图片视图最多两行展示多厂商模型、发布日期及近 7 天新品标识；不使用动态子视图、跑马灯方法或自动轮播绑定。用户已在 Samsung One UI 8.5 确认 v1.0.29 可正常添加。App 图标与两个组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
 **预编译 APK**：[下载 OpenRouter 账户看板 v1.0.29](android-widget/releases/openrouter-account-widget-v1.0.29.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`2fa488cac3414bcea97f291712e9bdf3c1524227c1c7bd031d32738dd3e89e72`。
 
