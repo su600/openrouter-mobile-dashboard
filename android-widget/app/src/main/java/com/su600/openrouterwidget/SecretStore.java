@@ -1,5 +1,6 @@
 package com.su600.openrouterwidget;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
@@ -41,6 +42,7 @@ final class SecretStore {
         return readSecret(context, DASHBOARD_IV_KEY, DASHBOARD_DATA_KEY);
     }
 
+    @SuppressLint("ApplySharedPref")
     static void clearDashboardToken(Context context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .remove(DASHBOARD_IV_KEY)
@@ -48,6 +50,8 @@ final class SecretStore {
                 .commit();
     }
 
+    // Credentials must be durable before setup can be dismissed or the process is backgrounded.
+    @SuppressLint("ApplySharedPref")
     private static void saveSecret(Context context, String ivKey, String dataKey, String value) throws Exception {
         if (value == null || value.isEmpty()) return;
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
