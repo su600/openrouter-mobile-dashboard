@@ -164,10 +164,21 @@ public class MainActivity extends Activity {
 
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                // Reveal regardless of origin match: a strict host/port check here previously
+                // left the WebView stuck behind the loading spinner (alpha=0) whenever the
+                // final URL didn't exactly match dashboardUrl (redirects, trailing slash, etc.)
+                // and onProgressChanged never separately reached 100.
                 if (isDashboardOrigin(Uri.parse(url))) {
                     view.evaluateJavascript("localStorage.removeItem('or_dashboard_token');", null);
-                    revealDashboard();
                 }
+                revealDashboard();
+            }
+
+            @Override public void onPageCommitVisible(WebView view, String url) {
+                super.onPageCommitVisible(view, url);
+                // Fires as soon as the page is visually ready; a second safety net in case
+                // progress/onPageFinished callbacks are delayed or skipped by the WebView.
+                revealDashboard();
             }
 
             @Override public void onReceivedError(WebView view, WebResourceRequest request,

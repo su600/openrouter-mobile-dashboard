@@ -48,23 +48,33 @@ public class NewsWidgetProvider extends AppWidgetProvider {
                 ? NewsCache.load(context) : news;
         for (int id : ids) {
             RemoteViews widget = baseViews(context, id);
-            if (display.isEmpty()) {
-                widget.setViewVisibility(R.id.news_flipper, View.GONE);
-                widget.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
-                widget.setTextViewText(R.id.news_empty,
-                        error == null ? context.getString(R.string.news_widget_empty) : error);
-            } else {
-                widget.removeAllViews(R.id.news_flipper);
-                for (WidgetApi.NewsItem item : display) {
-                    widget.addView(R.id.news_flipper, createNewsRow(context, item));
+            try {
+                if (display.isEmpty()) {
+                    widget.setViewVisibility(R.id.news_flipper, View.GONE);
+                    widget.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
+                    widget.setTextViewText(R.id.news_empty,
+                            error == null ? context.getString(R.string.news_widget_empty) : error);
+                } else {
+                    widget.removeAllViews(R.id.news_flipper);
+                    for (WidgetApi.NewsItem item : display) {
+                        widget.addView(R.id.news_flipper, createNewsRow(context, item));
+                    }
+                    widget.setInt(R.id.news_flipper, "setFlipInterval", 4500);
+                    widget.setBoolean(R.id.news_flipper, "setAutoStart", true);
+                    widget.setDisplayedChild(R.id.news_flipper, 0);
+                    widget.setViewVisibility(R.id.news_placeholder, View.GONE);
+                    widget.setViewVisibility(R.id.news_flipper, View.VISIBLE);
                 }
-                widget.setInt(R.id.news_flipper, "setFlipInterval", 4500);
-                widget.setBoolean(R.id.news_flipper, "setAutoStart", true);
-                widget.setDisplayedChild(R.id.news_flipper, 0);
-                widget.setViewVisibility(R.id.news_placeholder, View.GONE);
-                widget.setViewVisibility(R.id.news_flipper, View.VISIBLE);
+                manager.updateAppWidget(id, widget);
+            } catch (Exception renderError) {
+                // Never leave the widget stuck on a stale RemoteViews tree: fall back to a
+                // plain placeholder rather than silently failing to update.
+                RemoteViews fallback = baseViews(context, id);
+                fallback.setViewVisibility(R.id.news_flipper, View.GONE);
+                fallback.setViewVisibility(R.id.news_placeholder, View.VISIBLE);
+                fallback.setTextViewText(R.id.news_empty, context.getString(R.string.news_widget_empty));
+                manager.updateAppWidget(id, fallback);
             }
-            manager.updateAppWidget(id, widget);
         }
     }
 

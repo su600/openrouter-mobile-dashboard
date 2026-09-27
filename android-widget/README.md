@@ -2,7 +2,7 @@
 
 The Android app opens the existing responsive dashboard in a WebView and bundles two native home-screen widgets. The app icon and widgets use the same logo. The 4×2 account widget follows the dashboard's dark palette (`#0f1117` / `#1a1d29`) and green accent (`#4ade80`), showing account metrics plus Codex / Claude / Pi logos and 30-day usage sorted by spend. The 4×1 news widget cycles recent model releases with vendor logos, dates, and a NEW badge for models released within seven days. The dashboard uses a locally served Chart.js bundle, avoiding a blocking CDN fetch at startup.
 
-**Prebuilt APK v1.0.26:** [Download](releases/openrouter-account-widget-v1.0.26.apk). This debug-signed APK is for direct installation, not Google Play distribution.
+**Prebuilt APK v1.0.27:** [Download](releases/openrouter-account-widget-v1.0.27.apk). This debug-signed APK is for direct installation, not Google Play distribution.
 
 ## Setup
 
