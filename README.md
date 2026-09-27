@@ -152,9 +152,9 @@ sudo systemctl enable --now or-dashboard.service
 
 ### 8. Android App 与桌面小组件
 
-`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，小组件元数据指定为 5 列×2 行（支持的启动器按格数布局，其余启动器使用 dp 尺寸回退），展示余额、累计消费、本月消费与 UTC 今日消费。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；口令与小组件只读凭证使用 Android Keystore 加密保存，WebView 退出前会清除其本地登录副本。OpenRouter API Key 不会进入 APK 或手机。
+`android-widget/` 同时包含安卓看板 App 和原生桌面小组件：App 使用 WebView 打开现有手机网页看板，小组件目标尺寸固定为 5 列×2 行：支持 cell sizing 的启动器按格数布局，旧版启动器使用 dp 尺寸回退；垂直缩放已关闭。组件展示余额、累计消费、本月消费与 UTC 今日消费。App 图标与小组件使用同一个 logo。看板 URL 和访问口令可在 App 设置中维护；口令与小组件只读凭证使用 Android Keystore 加密保存，WebView 退出前会清除其本地登录副本。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.10](android-widget/releases/openrouter-account-widget-v1.0.10.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`e02ba0c3521c54af42a393d9364151c9c69cb88c4b2bb90c1cbba944ab2faf0d`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.11](android-widget/releases/openrouter-account-widget-v1.0.11.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`a498dec4aade431a70b436eec04647dba2b4d96e09ceedf882ccdd59dc0739ea`。
 
 从源码构建：
 

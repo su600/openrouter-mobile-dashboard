@@ -4,10 +4,10 @@
     android:targetCellHeight="2"
     android:minWidth="320dp"
     android:minHeight="160dp"
-    android:minResizeWidth="300dp"
+    android:minResizeWidth="320dp"
     android:minResizeHeight="160dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_account"
-    android:resizeMode="horizontal|vertical"
+    android:resizeMode="horizontal"
     android:widgetCategory="home_screen"
     android:description="@string/widget_description" />
