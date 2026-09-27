@@ -130,6 +130,7 @@
     grid-template-columns: 1fr;
     gap: 14px;
   }
+  .daily-chart-box { height: 200px; }
 
   /* ===== 平板/桌面端响应式布局 (>=768px) ===== */
   @media (min-width: 768px) {
@@ -707,6 +708,7 @@
     border-radius: 18px;
     margin-bottom: 0;
     padding: 10px 0;
+    min-height: 46px;
     overflow: hidden;
     position: relative;
     box-shadow: var(--card-shadow);
@@ -794,6 +796,11 @@
     color: var(--text-faint);
     font-size: 11px;
   }
+  .news-ticker .track span.item.news-placeholder {
+    color: var(--text-faint);
+    font-size: 11px;
+  }
+  .news-ticker.is-loading .track-wrap { cursor: default; }
   @keyframes fade-in-up {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -920,6 +927,18 @@
 
   /* 窄屏：价格卡片保持两列，行内改为「名称在上 / 价格在下」以留出可读宽度 */
   @media (max-width: 767px) {
+    body { padding-bottom: 28px; }
+    header { padding: 16px 14px 10px; }
+    header h1 { font-size: 17px; }
+    .container { padding: 10px 12px; gap: 10px; }
+    .stat-grid { gap: 10px; }
+    .card { padding: 14px; border-radius: 16px; }
+    .card-title { margin-bottom: 8px; }
+    .news-ticker { min-height: 42px; padding: 8px 0; border-radius: 15px; }
+    .news-ticker .tag { margin-left: 10px; margin-right: 8px; padding: 3px 8px; }
+    .news-ticker .track-wrap { height: 22px; }
+    .grid-2col { gap: 10px; }
+    .daily-chart-box { height: 188px; }
     .price-row {
       flex-direction: column;
       align-items: stretch;
@@ -1015,17 +1034,17 @@
       </div>
     </div>
 
-    <div class="news-ticker" id="news-ticker" style="display:none;">
+    <div class="news-ticker is-loading" id="news-ticker" aria-busy="true">
       <span class="tag">🆕 新品</span>
       <div class="track-wrap" id="news-track-wrap" tabindex="0" aria-label="模型新品发布，可横向滑动查看">
-        <div class="track" id="news-track"></div>
+        <div class="track" id="news-track"><span class="item news-placeholder">正在获取新品信息…</span></div>
       </div>
     </div>
 
     <div class="grid-2col">
       <div class="card">
         <div class="card-title"><span>近30天消费趋势 (USD/天)</span></div>
-        <div class="chart-box" style="height:200px;"><canvas id="dailyChart"></canvas></div>
+        <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
       </div>
 
       <div class="card">
@@ -1267,6 +1286,17 @@ function stripVendorPrefix(modelName, vendor) {
 }
 
 let newsLoaded = false;
+function setNewsTickerStatus(message) {
+  const ticker = document.getElementById("news-ticker");
+  const track = document.getElementById("news-track");
+  const placeholder = document.createElement("span");
+  placeholder.className = "item news-placeholder";
+  placeholder.textContent = message;
+  track.replaceChildren(placeholder);
+  ticker.classList.remove("is-loading");
+  ticker.setAttribute("aria-busy", "false");
+}
+
 function startNewsTickerScroll(trackWrap, track) {
   let lastFrame = 0;
   let pausedUntil = 0;
@@ -1322,9 +1352,16 @@ async function loadNewsTicker() {
   if (!token) return;
   try {
     const resp = await fetch(`/api/latest_models?token=${encodeURIComponent(token)}`);
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      setNewsTickerStatus("暂时无法获取新品信息");
+      return;
+    }
     const data = await resp.json();
-    if (!data.news || data.news.length === 0) return;
+    if (!Array.isArray(data.news) || data.news.length === 0) {
+      setNewsTickerStatus("暂无新品信息");
+      newsLoaded = true;
+      return;
+    }
     const track = document.getElementById("news-track");
     const buildItems = () => data.news.map(n => {
       const icon = getModelIcon(n.model_id);
@@ -1343,11 +1380,13 @@ async function loadNewsTicker() {
     // 复制两份内容供自动滚动循环，同时保留原生触屏/触控板横向滑动。
     track.innerHTML = buildItems() + buildItems();
     const trackWrap = document.getElementById("news-track-wrap");
-    document.getElementById("news-ticker").style.display = "flex";
+    const ticker = document.getElementById("news-ticker");
+    ticker.classList.remove("is-loading");
+    ticker.setAttribute("aria-busy", "false");
     startNewsTickerScroll(trackWrap, track);
     newsLoaded = true;
   } catch (e) {
-    // 静默失败，不影响主看板
+    setNewsTickerStatus("新品加载失败，请稍后重试");
   }
 }
 
