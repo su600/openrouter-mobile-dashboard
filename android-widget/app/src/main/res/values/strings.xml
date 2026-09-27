@@ -13,6 +13,10 @@
     <string name="widget_total_label">累计消费 (CNY)</string>
     <string name="widget_month_label">本月累计消费 (CNY)</string>
     <string name="widget_today_label">今日消费 · UTC (CNY)</string>
-    <string name="widget_apps_placeholder">近30天 Codex — · Claude — · Pi —</string>
+    <string name="widget_apps_period">近30天</string>
+    <string name="widget_app_icon_description">应用标志</string>
+    <string name="widget_app_codex">Codex</string>
+    <string name="widget_app_claude">Claude</string>
+    <string name="widget_app_pi">Pi</string>
     <string name="widget_dash">—</string>
 </resources>

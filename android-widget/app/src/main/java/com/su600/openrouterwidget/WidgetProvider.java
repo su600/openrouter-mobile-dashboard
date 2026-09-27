@@ -105,8 +105,7 @@ public class WidgetProvider extends AppWidgetProvider {
                         formatCny(summary.month, summary.usdToCny, 2));
                 views.setTextViewText(R.id.widget_today,
                         formatCny(summary.today, summary.usdToCny, 4));
-                views.setTextViewText(R.id.widget_apps_usage,
-                        formatApps(summary.appsLast30Days, summary.usdToCny));
+                setAppsUsage(views, summary.appsLast30Days, summary.usdToCny);
             } else {
                 views.setTextViewText(R.id.widget_title, errorTitle(error));
                 views.setTextViewText(R.id.widget_account_name, "点卡片检查设置");
@@ -114,23 +113,39 @@ public class WidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(R.id.widget_total_usage, "—");
                 views.setTextViewText(R.id.widget_month, "—");
                 views.setTextViewText(R.id.widget_today, "—");
-                views.setTextViewText(R.id.widget_apps_usage, "近30天用量暂不可用");
+                setAppsUsage(views, null, Double.NaN);
             }
             manager.updateAppWidget(id, views);
         }
     }
 
-    private static String formatApps(List<WidgetApi.AppUsage> apps, double rate) {
-        if (apps == null || apps.isEmpty()) return "近30天 Codex — · Claude — · Pi —";
-        List<WidgetApi.AppUsage> sorted = new ArrayList<>(apps);
-        sorted.sort((left, right) -> Double.compare(appUsage(right.usage), appUsage(left.usage)));
-        StringBuilder line = new StringBuilder("近30天 ");
-        for (int i = 0; i < sorted.size(); i++) {
-            if (i > 0) line.append(" · ");
-            WidgetApi.AppUsage app = sorted.get(i);
-            line.append(app.name).append(' ').append(formatCny(app.usage, rate, 1));
+    private static void setAppsUsage(RemoteViews views, List<WidgetApi.AppUsage> apps, double rate) {
+        List<WidgetApi.AppUsage> sorted = apps == null ? new ArrayList<>() : new ArrayList<>(apps);
+        if (sorted.isEmpty()) {
+            sorted.add(new WidgetApi.AppUsage("Codex", Double.NaN));
+            sorted.add(new WidgetApi.AppUsage("Claude", Double.NaN));
+            sorted.add(new WidgetApi.AppUsage("Pi", Double.NaN));
         }
-        return line.toString();
+        sorted.sort((left, right) -> Double.compare(appUsage(right.usage), appUsage(left.usage)));
+
+        int[] iconIds = {R.id.widget_app_icon_0, R.id.widget_app_icon_1, R.id.widget_app_icon_2};
+        int[] nameIds = {R.id.widget_app_name_0, R.id.widget_app_name_1, R.id.widget_app_name_2};
+        int[] valueIds = {R.id.widget_app_value_0, R.id.widget_app_value_1, R.id.widget_app_value_2};
+        String[] defaults = {"Codex", "Claude", "Pi"};
+        for (int i = 0; i < iconIds.length; i++) {
+            WidgetApi.AppUsage app = i < sorted.size() ? sorted.get(i)
+                    : new WidgetApi.AppUsage(defaults[i], Double.NaN);
+            views.setImageViewResource(iconIds[i], appIcon(app.name));
+            views.setTextViewText(nameIds[i], app.name);
+            views.setTextViewText(valueIds[i], formatCny(app.usage, rate, 1));
+        }
+    }
+
+    private static int appIcon(String name) {
+        if ("codex".equalsIgnoreCase(name)) return R.drawable.app_codex;
+        if ("claude".equalsIgnoreCase(name)) return R.drawable.app_claude_code;
+        if ("pi".equalsIgnoreCase(name)) return R.drawable.app_pi;
+        return R.drawable.app_icon;
     }
 
     private static double appUsage(double value) {
