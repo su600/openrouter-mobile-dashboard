@@ -15,11 +15,14 @@ import os
 import json
 import time
 import gzip
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-from config import DASHBOARD_TOKEN, PORT, STATIC_DIR
+from config import DASHBOARD_TOKEN, PORT, STATIC_DIR, RUNTIME_KEY_MANAGEMENT_ENABLED
 import accounts as accounts_store
+import runtime_keys
+import key_injection
 import openrouter_api as api
 from logging_setup import setup_logging, get_logger
 import widget_auth
@@ -114,6 +117,9 @@ class Handler(BaseHTTPRequestHandler):
             length = 0
         if length <= 0:
             return {}
+        if length > 65536:
+            self.close_connection = True
+            return {}
         raw = self.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
@@ -123,6 +129,28 @@ class Handler(BaseHTTPRequestHandler):
     # ===== 鉴权 =====
     def _authorized(self, qs):
         return qs.get("token", [""])[0] == DASHBOARD_TOKEN
+
+    def _admin_authorized(self):
+        """Header-based auth for opt-in secret-writing/admin endpoints."""
+        if not RUNTIME_KEY_MANAGEMENT_ENABLED:
+            return False
+        if not DASHBOARD_TOKEN or DASHBOARD_TOKEN == "changeme":
+            return False
+        authorization = self.headers.get("Authorization", "")
+        scheme, _, supplied = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not hmac.compare_digest(supplied, DASHBOARD_TOKEN):
+            return False
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                parsed_origin = urlparse(origin)
+                if parsed_origin.netloc.lower() != (self.headers.get("Host") or "").lower():
+                    return False
+                if parsed_origin.scheme not in ("http", "https"):
+                    return False
+            except Exception:
+                return False
+        return True
 
     def _unauthorized(self):
         self._send_json({"error": "unauthorized"}, 401)
@@ -212,15 +240,38 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "暂时无法获取账户汇总"}, 500, cache_control="no-store")
             return
 
+        if parsed.path == "/api/accounts/injection-status":
+            if not self._admin_authorized():
+                return self._unauthorized()
+            try:
+                managed_accounts = accounts_store.load_accounts()["accounts"]
+                checked = key_injection.check_current_keys(managed_accounts)
+            except Exception:
+                self._send_json({"error": "无法读取当前推理 Key 配置"}, 500, cache_control="no-store")
+                return
+            self._send_json(checked, cache_control="no-store")
+            return
+
         if parsed.path == "/api/accounts":
             if not self._authorized(qs):
                 return self._unauthorized()
             data = accounts_store.load_accounts()
+            try:
+                inference_keys = runtime_keys.public_keys()
+            except runtime_keys.RuntimeKeyStoreError:
+                self._send_json({"error": "推理 Key 存储不可用"}, 500, cache_control="no-store")
+                return
+            public_accounts = []
+            for account in data["accounts"]:
+                public = accounts_store.public_account(account)
+                key_info = inference_keys.get(account["id"], {})
+                public["inference_key_present"] = bool(key_info.get("present"))
+                public["inference_key_masked"] = key_info.get("key_masked", "")
+                public["inference_key_updated_at"] = key_info.get("updated_at")
+                public_accounts.append(public)
             self._send_json(
-                {
-                    "accounts": [accounts_store.public_account(a) for a in data["accounts"]],
-                    "active": data.get("active"),
-                }
+                {"accounts": public_accounts, "active": data.get("active")},
+                cache_control="no-store",
             )
             return
 
@@ -347,6 +398,74 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path in ("/api/accounts/inference-key", "/api/accounts/inject"):
+            if not self._admin_authorized():
+                return self._unauthorized()
+            body = self._read_json_body()
+            if not isinstance(body, dict):
+                self._send_json({"error": "请求格式无效"}, 400, cache_control="no-store")
+                return
+            account_id = str(body.get("account_id") or "").strip()
+            data = accounts_store.load_accounts()
+            account = next((a for a in data["accounts"] if a.get("id") == account_id), None)
+            if not account:
+                self._send_json({"error": "账户不存在"}, 404, cache_control="no-store")
+                return
+
+            if parsed.path == "/api/accounts/inference-key":
+                api_key = body.get("api_key")
+                if not isinstance(api_key, str):
+                    self._send_json({"error": "请填写 OpenRouter API Key"}, 400, cache_control="no-store")
+                    return
+                api_key = api_key.strip()
+                if not api_key.startswith("sk-or-") or len(api_key) > 1024 or any(ch.isspace() for ch in api_key):
+                    self._send_json({"error": "Key 格式无效；应为 OpenRouter sk-or- 格式"}, 400, cache_control="no-store")
+                    return
+                ok, message, _ = api.validate_openrouter_key(api_key)
+                if not ok:
+                    self._send_json({"error": message or "OpenRouter Key 校验失败"}, 400, cache_control="no-store")
+                    return
+                try:
+                    runtime_keys.set_key(account_id, api_key)
+                    key_info = runtime_keys.public_keys().get(account_id, {})
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 409, cache_control="no-store")
+                    return
+                except (runtime_keys.RuntimeKeyStoreError, OSError):
+                    self._send_json({"error": "无法安全保存推理 Key"}, 500, cache_control="no-store")
+                    return
+                logger.info("inference_key_saved account_id=%s", account_id)
+                self._send_json(
+                    {"ok": True, "account_id": account_id, "inference_key": key_info},
+                    cache_control="no-store",
+                )
+                return
+
+            target = str(body.get("target") or "").strip()
+            try:
+                result = key_injection.inject(account_id, target)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, 400, cache_control="no-store")
+                return
+            except key_injection.InjectionError as exc:
+                logger.warning("inference_key_injection_failed account_id=%s target=%s", account_id, target)
+                self._send_json({"error": str(exc)}, 502, cache_control="no-store")
+                return
+            except runtime_keys.RuntimeKeyStoreError:
+                self._send_json({"error": "推理 Key 存储不可用"}, 500, cache_control="no-store")
+                return
+            except Exception:
+                logger.warning("inference_key_injection_unexpected_error account_id=%s target=%s", account_id, target)
+                self._send_json({"error": "注入失败；请检查服务与本地配置文件"}, 500, cache_control="no-store")
+                return
+            logger.info("inference_key_injected account_id=%s target=%s", account_id, target)
+            try:
+                result["key_check"] = key_injection.check_current_keys(data["accounts"])
+            except Exception:
+                result["key_check"] = None
+            self._send_json(result, cache_control="no-store")
+            return
+
         if not self._authorized(qs):
             return self._unauthorized()
 
@@ -427,6 +546,23 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         parsed = urlparse(self.path)
         qs = parse_qs(parsed.query)
+
+        if parsed.path == "/api/accounts/inference-key":
+            if not self._admin_authorized():
+                return self._unauthorized()
+            acct_id = qs.get("id", [""])[0]
+            data = accounts_store.load_accounts()
+            if not any(a.get("id") == acct_id for a in data["accounts"]):
+                self._send_json({"error": "账户不存在"}, 404, cache_control="no-store")
+                return
+            try:
+                removed = runtime_keys.delete_key(acct_id)
+            except (runtime_keys.RuntimeKeyStoreError, OSError):
+                self._send_json({"error": "无法安全删除本地 Key"}, 500, cache_control="no-store")
+                return
+            self._send_json({"ok": True, "deleted": removed}, cache_control="no-store")
+            return
+
         if not self._authorized(qs):
             return self._unauthorized()
 
@@ -448,8 +584,18 @@ class Handler(BaseHTTPRequestHandler):
                 if data.get("active") == acct_id:
                     data["active"] = data["accounts"][0]["id"]
                 accounts_store.save_accounts(data)
+                runtime_keys.delete_key(acct_id)
+                inference_keys = runtime_keys.public_keys()
+                public_accounts = []
+                for account in data["accounts"]:
+                    public = accounts_store.public_account(account)
+                    key_info = inference_keys.get(account["id"], {})
+                    public["inference_key_present"] = bool(key_info.get("present"))
+                    public["inference_key_masked"] = key_info.get("key_masked", "")
+                    public["inference_key_updated_at"] = key_info.get("updated_at")
+                    public_accounts.append(public)
                 result = {
-                    "accounts": [accounts_store.public_account(a) for a in data["accounts"]],
+                    "accounts": public_accounts,
                     "active": data.get("active"),
                 }
             self._send_json({"ok": True, **result})

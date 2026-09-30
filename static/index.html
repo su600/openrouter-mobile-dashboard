@@ -613,14 +613,81 @@
   }
   .account-list-item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
     padding: 10px 12px;
     border: 1px solid var(--card-border);
     border-radius: 10px;
     background: var(--input-bg);
   }
+  .account-primary-row, .account-inference-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .account-inference-row {
+    padding-top: 8px;
+    border-top: 1px solid var(--card-border);
+    flex-wrap: wrap;
+  }
+  .account-inference-info { min-width: 0; font-size: 11px; color: var(--text-muted); }
+  .account-inference-key {
+    display: inline-block;
+    margin-left: 4px;
+    color: var(--text-faint);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow-wrap: anywhere;
+  }
+  .account-runtime-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .runtime-key-action {
+    min-height: 28px;
+    padding: 4px 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .runtime-key-action:hover { color: var(--text); background: var(--chip-bg); }
+  .runtime-key-action.danger { color: var(--danger); }
+  .runtime-key-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .key-http-warning {
+    margin: 8px 0 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 9px;
+    background: rgba(234, 179, 8, 0.08);
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .runtime-http-confirm { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: var(--text-muted); }
+  .runtime-http-confirm input { width: 16px; min-height: 16px; margin: 2px 0 0; flex: 0 0 auto; }
+  .runtime-check-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .runtime-injection-status {
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: var(--chip-bg);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.55;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .runtime-injection-controls { display: flex; gap: 8px; }
+  .runtime-injection-controls select { flex: 1; min-width: 0; }
+  .account-add-form .runtime-injection-controls select { width: auto; }
+  .runtime-injection-controls .account-submit-btn { flex: 0 0 auto; white-space: nowrap; }
   .account-list-item.current { border-color: var(--accent); }
   .account-list-info { min-width: 0; }
   .account-list-name {
@@ -685,8 +752,9 @@
     font-weight: 600;
     color: var(--text-muted);
   }
-  .account-add-form input {
+  .account-add-form input, .account-add-form select {
     width: 100%;
+    min-height: 40px;
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--input-border);
@@ -694,7 +762,7 @@
     color: var(--text);
     font-size: 13px;
   }
-  .account-add-form input:focus { outline: none; border-color: var(--accent); }
+  .account-add-form input:focus, .account-add-form select:focus { outline: none; border-color: var(--accent); }
   .account-submit-btn {
     padding: 11px;
     border-radius: 10px;
@@ -1140,14 +1208,29 @@
       <button class="modal-close" onclick="closeAccountsModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="account-form-msg">访问状态为人工标记；管理 Key 无法通过模型调用自动验证。</div>
+      <div class="account-form-msg">账户查询 Key 用于看板数据；推理 Key 单独保存，用于 Pi Agent / Gateway 调用模型。</div>
+      <div class="key-http-warning" role="note">⚠️ 当前看板使用 HTTP，密钥会明文传输。仅用临时、低额度测试 Key；不要在公网 HTTP 下录入生产 Key。</div>
+      <label class="runtime-http-confirm"><input id="http-key-test-confirm" type="checkbox" />我了解 HTTP 明文传输风险，并且只会使用测试 Key。</label>
       <ul class="account-list" id="account-list"></ul>
       <div class="account-add-form">
-        <div class="form-title">➕ 添加账户</div>
-        <input id="new-account-name" type="text" placeholder="备注名（可选，如：主账户）" />
-        <input id="new-account-key" type="password" placeholder="OpenRouter API Key (sk-or-...)" autocomplete="off" />
-        <button class="account-submit-btn" id="account-submit-btn" onclick="addAccount()">添加并验证</button>
-        <div class="account-form-msg" id="account-form-msg"></div>
+        <div class="form-title">推理 API Key · 添加或覆盖</div>
+        <select id="runtime-key-account" aria-label="选择关联账户"></select>
+        <input id="runtime-key-input" type="password" placeholder="OpenRouter 推理 Key (sk-or-...)" autocomplete="new-password" />
+        <button class="account-submit-btn" id="runtime-key-save-btn" onclick="saveInferenceKey()">保存 / 覆盖推理 Key</button>
+        <div class="account-form-msg" id="runtime-key-msg" aria-live="polite"></div>
+        <div class="runtime-check-heading">
+          <span>当前推理 Key 检查</span>
+          <button class="runtime-key-action" id="runtime-key-check-btn" onclick="checkCurrentKeys()">检查当前 Key</button>
+        </div>
+        <div class="runtime-injection-status" id="runtime-injection-status">读取 Pi Agent 和 Gateway 的本机配置；不会发起模型调用。</div>
+        <div class="runtime-injection-controls">
+          <select id="runtime-key-target" aria-label="选择注入目标">
+            <option value="pi">Pi Agent</option>
+            <option value="gateway">OpenRouter Gateway（全局上游）</option>
+            <option value="both" selected>Pi Agent + Gateway</option>
+          </select>
+          <button class="account-submit-btn" id="runtime-key-inject-btn" onclick="injectSelectedKey()">注入已保存 Key</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1918,10 +2001,15 @@ function switchAccount() {
 function openAccountsModal() {
   document.getElementById("accounts-modal").classList.add("show");
   renderAccountManageList();
+  checkCurrentKeys();
 }
 
 function closeAccountsModal() {
   document.getElementById("accounts-modal").classList.remove("show");
+  const keyInput = document.getElementById("runtime-key-input");
+  const acknowledgement = document.getElementById("http-key-test-confirm");
+  if (keyInput) keyInput.value = "";
+  if (acknowledgement) acknowledgement.checked = false;
 }
 
 function renderAccountManageList() {
@@ -1933,23 +2021,216 @@ function renderAccountManageList() {
   }
   el.innerHTML = accounts.map(a => `
     <li class="account-list-item ${a.id === currentAccountId ? "current" : ""}">
-      <div class="account-list-info">
-        <div class="account-list-name">${escapeHtml(a.name)} ${a.id === currentAccountId ? '<span class="account-badge">当前</span>' : ""}</div>
-        <div class="account-list-key">${escapeHtml(a.key_masked)}</div>
+      <div class="account-primary-row">
+        <div class="account-list-info">
+          <div class="account-list-name">${escapeHtml(a.name)} ${a.id === currentAccountId ? '<span class="account-badge">当前</span>' : ""}</div>
+          <div class="account-list-key">查询 Key：${escapeHtml(a.key_masked)}</div>
+        </div>
+        <div class="account-list-actions">
+          <select class="account-status-select" aria-label="${escapeHtml(a.name)} 访问状态" onchange="setAccountAccessStatus('${a.id}', this.value)">
+            ${[
+              ["unknown", "❓ 未标记"],
+              ["healthy", "✅ 正常"],
+              ["partial", "⚠️ 部分受限"],
+              ["restricted", "🚫 受限"],
+            ].map(([state, label]) => `<option value="${state}" ${a.access_status?.state === state ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+          <button class="account-icon-btn" onclick="renameAccount('${a.id}')" title="重命名">✏️</button>
+          <button class="account-icon-btn danger" onclick="deleteAccount('${a.id}')" title="删除账户及关联推理 Key">🗑️</button>
+        </div>
       </div>
-      <div class="account-list-actions">
-        <select class="account-status-select" aria-label="${escapeHtml(a.name)} 访问状态" onchange="setAccountAccessStatus('${a.id}', this.value)">
-          ${[
-            ["unknown", "❓ 未标记"],
-            ["healthy", "✅ 正常"],
-            ["partial", "⚠️ 部分受限"],
-            ["restricted", "🚫 受限"],
-          ].map(([state, label]) => `<option value="${state}" ${a.access_status?.state === state ? "selected" : ""}>${label}</option>`).join("")}
-        </select>
-        <button class="account-icon-btn" onclick="renameAccount('${a.id}')" title="重命名">✏️</button>
-        <button class="account-icon-btn danger" onclick="deleteAccount('${a.id}')" title="删除">🗑️</button>
+      <div class="account-inference-row">
+        <div class="account-inference-info">推理 Key：<span class="account-inference-key">${a.inference_key_present ? escapeHtml(a.inference_key_masked) : "未设置"}</span></div>
+        <div class="account-runtime-actions">
+          <button class="runtime-key-action" onclick="selectRuntimeAccount('${a.id}')">${a.inference_key_present ? "覆盖" : "添加 Key"}</button>
+          ${a.inference_key_present ? `<button class="runtime-key-action danger" onclick="deleteInferenceKey('${a.id}')">删除本地 Key</button>` : ""}
+        </div>
       </div>
     </li>`).join("");
+  const select = document.getElementById("runtime-key-account");
+  if (select) {
+    const previous = select.value;
+    select.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join("");
+    select.value = accounts.some(a => a.id === previous) ? previous : (currentAccountId || accounts[0].id);
+  }
+}
+
+function runtimeAdminHeaders(json = true) {
+  const headers = { "Authorization": `Bearer ${getToken()}` };
+  if (json) headers["Content-Type"] = "application/json";
+  return headers;
+}
+
+function selectRuntimeAccount(id) {
+  const select = document.getElementById("runtime-key-account");
+  const input = document.getElementById("runtime-key-input");
+  if (select) select.value = id;
+  if (input) input.focus();
+}
+
+function requireHttpTestAcknowledgement() {
+  const checkbox = document.getElementById("http-key-test-confirm");
+  if (checkbox && !checkbox.checked) {
+    const msg = document.getElementById("runtime-key-msg");
+    msg.textContent = "请先确认 HTTP 测试风险，并只使用测试 Key。";
+    msg.className = "account-form-msg error";
+    return false;
+  }
+  return true;
+}
+
+async function saveInferenceKey() {
+  if (!requireHttpTestAcknowledgement()) return;
+  const accountId = document.getElementById("runtime-key-account").value;
+  const input = document.getElementById("runtime-key-input");
+  const msg = document.getElementById("runtime-key-msg");
+  const btn = document.getElementById("runtime-key-save-btn");
+  const apiKey = input.value.trim();
+  if (!apiKey) {
+    msg.textContent = "请填写推理 API Key。";
+    msg.className = "account-form-msg error";
+    return;
+  }
+  msg.textContent = "正在通过 OpenRouter /key 校验（不会发起模型调用）…";
+  msg.className = "account-form-msg";
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/accounts/inference-key", {
+      method: "POST",
+      headers: runtimeAdminHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({ account_id: accountId, api_key: apiKey }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || "保存失败");
+    msg.textContent = "推理 Key 已保存并校验；列表只显示掩码。";
+    msg.className = "account-form-msg success";
+    await loadAccounts();
+    renderAccountManageList();
+    checkCurrentKeys();
+  } catch (e) {
+    msg.textContent = e.message || "保存失败。";
+    msg.className = "account-form-msg error";
+  } finally {
+    input.value = "";
+    btn.disabled = false;
+  }
+}
+
+async function deleteInferenceKey(id) {
+  const account = accounts.find(a => a.id === id);
+  if (!confirm(`只从本地看板删除「${account ? account.name : id}」关联的推理 Key；不会撤销 OpenRouter 上的 Key。继续？`)) return;
+  try {
+    const resp = await fetch(`/api/accounts/inference-key?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: runtimeAdminHeaders(false),
+      cache: "no-store",
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || "删除失败");
+    document.getElementById("runtime-key-msg").textContent = "本地 Key 已删除。OpenRouter 上的 Key 未撤销。";
+    document.getElementById("runtime-key-msg").className = "account-form-msg success";
+    await loadAccounts();
+    renderAccountManageList();
+    checkCurrentKeys();
+  } catch (e) {
+    document.getElementById("runtime-key-msg").textContent = e.message || "删除失败。";
+    document.getElementById("runtime-key-msg").className = "account-form-msg error";
+  }
+}
+
+function describeCurrentKey(label, item) {
+  if (!item) return `${label}：检查结果不可用`;
+  const statusLabels = {
+    active: "服务运行中",
+    not_running: "服务未运行（显示磁盘配置）",
+    missing: "未检测到 Key",
+    unavailable: "无法读取配置",
+    command_credential: "命令型凭证无法安全展开",
+  };
+  const typeLabels = { account_query: "账户查询 Key", inference: "推理 Key" };
+  const matches = (item.matches || []).map(match => {
+    const kinds = (match.key_types || []).map(type => typeLabels[type] || type).join(" + ");
+    return `${match.account_name || match.account_id}${kinds ? `（${kinds}）` : ""}`;
+  });
+  const accountLine = matches.length
+    ? `匹配账户：${matches.join("；")}`
+    : item.key_masked ? "匹配账户：未登记在看板账户中" : "匹配账户：—";
+  const keyLine = item.key_masked ? `Key：${item.key_masked}` : "Key：未读取";
+  return `${label}：${statusLabels[item.status] || item.status || "未知"}\n${accountLine}\n${keyLine}\n来源：${item.source || "未知"}`;
+}
+
+function renderInjectionStatus(check) {
+  const el = document.getElementById("runtime-injection-status");
+  if (!el) return;
+  el.textContent = [
+    describeCurrentKey("Pi Agent", check.pi_agent),
+    describeCurrentKey("Gateway 全局上游", check.gateway),
+  ].join("\n\n");
+}
+
+async function checkCurrentKeys() {
+  const el = document.getElementById("runtime-injection-status");
+  const btn = document.getElementById("runtime-key-check-btn");
+  if (!el || !getToken()) return;
+  if (btn) { btn.disabled = true; btn.textContent = "检查中…"; }
+  el.textContent = "正在读取 Pi Agent / Gateway 配置并与看板账户比对…";
+  try {
+    const resp = await fetch("/api/accounts/injection-status", {
+      headers: runtimeAdminHeaders(false), cache: "no-store",
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || "读取失败");
+    renderInjectionStatus(data);
+  } catch (e) {
+    el.textContent = e.message || "无法读取当前 Key 配置。";
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "检查当前 Key"; }
+  }
+}
+
+async function injectSelectedKey() {
+  if (!requireHttpTestAcknowledgement()) return;
+  const accountId = document.getElementById("runtime-key-account").value;
+  const target = document.getElementById("runtime-key-target").value;
+  const account = accounts.find(a => a.id === accountId);
+  if (!account || !account.inference_key_present) {
+    const msg = document.getElementById("runtime-key-msg");
+    msg.textContent = "所选账户尚未保存推理 Key。";
+    msg.className = "account-form-msg error";
+    return;
+  }
+  const impact = target === "gateway"
+    ? "这会切换 Gateway 的全局上游账户，并短暂重建 Gateway。"
+    : target === "pi"
+      ? "这会替换 Pi Agent 的 OpenRouter 凭证并重启后台 Pi 服务。"
+      : "这会同时替换 Pi Agent 和 Gateway 的上游凭证，并重启两个服务。";
+  if (!confirm(`将「${account.name}」的推理 Key 注入到 ${target === "both" ? "Pi Agent + Gateway" : target === "gateway" ? "Gateway" : "Pi Agent"}？\n\n${impact}`)) return;
+  const btn = document.getElementById("runtime-key-inject-btn");
+  const msg = document.getElementById("runtime-key-msg");
+  btn.disabled = true;
+  msg.textContent = "正在更新服务配置并检查健康状态…";
+  msg.className = "account-form-msg";
+  try {
+    const resp = await fetch("/api/accounts/inject", {
+      method: "POST",
+      headers: runtimeAdminHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({ account_id: accountId, target }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || "注入失败");
+    if (data.key_check) renderInjectionStatus(data.key_check);
+    else checkCurrentKeys();
+    msg.textContent = "注入完成，目标服务健康检查通过。";
+    msg.className = "account-form-msg success";
+  } catch (e) {
+    msg.textContent = e.message || "注入失败；请检查服务状态。";
+    msg.className = "account-form-msg error";
+    checkCurrentKeys();
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function setAccountAccessStatus(id, state) {

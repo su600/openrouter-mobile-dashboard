@@ -11,6 +11,7 @@ import json
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ACCOUNTS_PATH = os.path.join(BASE_DIR, "accounts.json")
+RUNTIME_KEYS_PATH = os.path.join(BASE_DIR, "runtime_keys.json")
 WIDGET_TOKEN_PATH = os.path.join(BASE_DIR, "widget_readonly_token")
 BASELINE_PATH = os.path.join(BASE_DIR, "daily_baseline.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -26,5 +27,6 @@ DASHBOARD_TOKEN = (
     or os.environ.get("OR_DASHBOARD_TOKEN")
     or "changeme"
 )
+RUNTIME_KEY_MANAGEMENT_ENABLED = os.environ.get("OR_ENABLE_RUNTIME_KEY_MANAGEMENT") == "1"
 PORT = int(CONFIG.get("port", 8899))
 USD_TO_CNY_RATE = CONFIG.get("usd_to_cny_rate", 7.1)
