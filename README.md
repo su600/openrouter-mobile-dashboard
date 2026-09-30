@@ -220,10 +220,10 @@ openrouter-dashboard/
         ├── meta.png
         ├── qwen.png
         ├── mistral.png
-        └── apps/               # App 调用客户端官方图标
+        └── apps/               # App 用量分析使用的图标
             ├── claude-code.png
             ├── codex.webp
-            └── pi.jpg
+            └── pi-symbol.png   # Pi 用量自定义白色标识
 ```
 
 ## 🔧 工作原理
