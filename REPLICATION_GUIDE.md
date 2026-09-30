@@ -2,7 +2,7 @@
 
 本文面向希望从空目录重建本项目的开发者，说明系统架构、数据流、关键计算逻辑、接口契约、前端行为、测试与部署。目标不是只复刻页面外观，而是复刻一个可以安全部署、持续运行的 OpenRouter 账户监控看板。
 
-> 本文中的域名、目录、口令和 API Key 都是占位值。不要把真实 OpenRouter Key、访问口令、`config.json`、`accounts.json` 或 `daily_baseline.json` 提交到 Git。
+> 本文中的域名、目录、口令和 API Key 都是占位值。不要把真实 OpenRouter Key、访问口令、`config.json`、`accounts.json`、`runtime_keys.json`、`daily_baseline.json` 或 `widget_readonly_token` 提交到 Git。
 
 ## 1. 项目目标与功能范围
 
@@ -10,7 +10,8 @@
 
 - 展示账户余额、累计消费、本月消费、今日消费。
 - 展示近 30 天消费趋势、按 App 的消费分布、模型消费排行和完整模型消费明细。
-- 管理多个 OpenRouter API Key：新增前校验、切换、重命名、删除；浏览器只能看到 Key 脱敏掩码。
+- 管理多个 OpenRouter 账户查询 Key：新增前校验、切换、重命名、删除；浏览器只能看到 Key 脱敏掩码。
+- 为每个账户单独管理模型推理 Key；可检查 Pi Agent 与 Gateway 当前配置所匹配的账户和 Key 类型，并可一键注入到 Pi Agent、Gateway 全局上游或两者，实现 API Key 的快速更新/切换。
 - 展示主流厂商最新模型新闻滚动条，以及 GPT / Claude 最新一代模型的价格对比。
 - 展示 OpenRouter 模型目录中 Artificial Analysis 的 `Intelligence Index`；上游未提供时显示“—”。
 - 支持 USD/CNY 切换、深浅主题、余额与消费预警、自动刷新、手机响应式布局及 PWA 安装。
@@ -18,7 +19,7 @@
 ### 技术选型
 
 - 后端：Python 3 + 标准库 `http.server`，唯一第三方依赖为 `requests`。
-- 前端：单页 HTML/CSS/原生 JavaScript，图表使用 Chart.js 4.4.4 CDN，无前端构建系统。
+- 前端：单页 HTML/CSS/原生 JavaScript，图表使用本地静态资源 Chart.js 4.4.4，无前端构建系统。
 - 持久化：JSON 文件；无 SQL/NoSQL 数据库。
 - 进程管理：systemd；HTTPS 由 Caddy、Nginx 或其他反向代理提供。
 
@@ -34,7 +35,21 @@
                                                              analytics/query / models
 ```
 
-浏览器只持有看板访问口令，不持有 OpenRouter Key。后端读取账户 Key，调用 OpenRouter，再把所需数据聚合成前端 JSON。看板访问口令存于浏览器 `localStorage`；服务器端 OpenRouter Key 存于服务端文件。
+浏览器只持有看板访问口令，不持有 OpenRouter Key。普通看板请求由后端读取账户查询 Key 并调用 OpenRouter，再把聚合数据返回浏览器。推理 Key 是另一类凭证，单独保存在服务器 `runtime_keys.json` 中，不返回前端明文。
+
+推理 Key 的管理与部署数据流如下：
+
+```text
+管理界面（Bearer 鉴权）
+  ├─ 保存/覆盖 Key ─> 后端调用 OpenRouter /key 校验（不发模型请求）
+  │                    └─> runtime_keys.json（权限 600）
+  ├─ 检查当前 Key ──> 读取 Pi auth.json / 服务环境与 Gateway 容器环境
+  │                    └─> 与账户查询 Key、已保存推理 Key 比对，只返回账户名/类型/掩码
+  └─ 一键注入 ──────> Pi auth.json + 重启 pi-agent.service
+                       Gateway .env + 重建 gateway 容器 + 健康检查
+```
+
+Gateway 当前只有一个全局 `OPENROUTER_API_KEY`，因此切换 Gateway 目标会影响所有经由它调用的客户端；Gateway 的 `CLIENT_API_KEYS` 不变。注入不会验证模型调用是否成功，也不会创建或撤销 OpenRouter 平台上的 Key。
 
 `server.py` 直接监听 `0.0.0.0:<PORT>`，自身不提供 TLS。公网部署时应由 HTTPS 反向代理转发到本机 Python 端口，并通过安全组/防火墙阻止外部直接访问该端口。
 
@@ -44,7 +59,9 @@
 |---|---|
 | `server.py` | HTTP 路由、访问口令校验、静态资源发送、JSON 响应与 gzip |
 | `openrouter_api.py` | OpenRouter 上游请求、消费聚合、模型筛选、缓存与降级 |
-| `accounts.py` | 多账户初始化、JSON 持久化、脱敏和稳定账户 ID |
+| `accounts.py` | 多账户查询 Key 初始化、JSON 持久化、脱敏和稳定账户 ID |
+| `runtime_keys.py` | 按账户 ID 单独保管模型推理 Key；原子写入、权限 600、只向界面提供掩码 |
+| `key_injection.py` | 检查运行中 Pi/Gateway 配置并匹配账户；安全替换目标凭证、重启服务、失败时回滚 |
 | `baseline.py` | 每账户每日累计消费基准及历史差分计算 |
 | `baseline_capture.py` | 定时读取每个账户的累计消费并记录 UTC 日界基准 |
 | `config.py` | 读取配置、计算数据文件绝对路径和默认值 |
@@ -54,21 +71,23 @@
 | `static/manifest.json` | PWA 名称、显示模式、图标等元数据 |
 | `static/sw.js` | 注册 Service Worker；当前仅透传网络，不做离线缓存 |
 | `static/logos/` | 模型厂商及 App 图标 |
-| `tests/` | 账户脱敏、基准历史、模型筛选等离线单元测试 |
+| `tests/` | 账户/推理 Key 脱敏、Key 匹配与注入回滚、管理 API 鉴权、基准历史和模型筛选等离线测试 |
 
-`config.json`、`accounts.json`、`daily_baseline.json` 都是运行时数据并已列入 `.gitignore`。首次启动后确认它们由服务用户拥有，权限应限制为仅服务用户可读写。
+`config.json`、`accounts.json`、`runtime_keys.json`、`daily_baseline.json` 和 `widget_readonly_token` 都是运行时数据并已列入 `.gitignore`。其中账户查询 Key 与推理 Key 都以明文保存在服务器文件中；首次启动后确认文件由服务用户拥有，权限限制为仅服务用户可读写（密钥文件为 `0600`）。
 
 ## 4. 从零实现的推荐顺序
 
 1. 建立配置模块和 JSON 路径常量。
-2. 完成账户存取、Key 脱敏和账户 ID 派生。
-3. 完成基准历史的原子写入、迁移与纯函数日期差分。
-4. 完成 OpenRouter API 客户端、单账户汇总和缓存。
-5. 编写 HTTP API 路由及静态文件安全路径校验。
-6. 完成响应式 HTML 界面、图表、账户管理和错误/空数据状态。
-7. 添加 PWA manifest、图标与 Service Worker。
-8. 为账户、基准计算和模型筛选编写不依赖网络的测试。
-9. 在 HTTPS 反向代理后部署，并设置 systemd 与基准定时任务。
+2. 完成账户查询凭证存取、脱敏和账户 ID 派生。
+3. 完成推理 Key 独立保管、覆盖、删除和脱敏列表。
+4. 完成基准历史的原子写入、迁移与纯函数日期差分。
+5. 完成 OpenRouter API 客户端、单账户汇总和缓存。
+6. 编写普通看板 API、推理 Key 管理/检查/注入接口及静态文件安全路径校验。
+7. 完成响应式 HTML 界面、账户管理、当前 Key 检查和一键注入交互。
+8. 编写 Pi/Gateway 凭证检查、固定目标更新、服务重启、健康检查和回滚逻辑。
+9. 添加 PWA manifest、图标与 Service Worker。
+10. 为账户、Key 脱敏/权限、检查/注入、基准计算和模型筛选编写测试。
+11. 在 HTTPS 反向代理或可信 VPN 后部署，并设置 systemd 与基准定时任务。
 
 ## 5. 配置与初始化
 
@@ -112,7 +131,27 @@ chmod 600 config.json
 3. 每个账户的 ID 为 `acct_` 加 API Key 的 SHA-1 前 10 位十六进制摘要；它只用于稳定标识，不是认证凭据。
 4. API 返回账户的 `id`、`name`、`key_masked`，绝不返回 `api_key`。
 
-第一次导入后，`accounts.json` 成为运行时账户的主存储。之后仅修改 `config.json` 不会覆盖已有账户文件；新增/删除/重命名应通过看板账户管理功能完成。`accounts.json` 含明文 API Key，不可公开或提交。
+第一次导入后，`accounts.json` 成为运行时账户查询凭证的主存储。之后仅修改 `config.json` 不会覆盖已有账户文件；新增/删除/重命名应通过看板账户管理功能完成。`accounts.json` 含明文 Key，不可公开或提交。
+
+### 推理 Key 的独立保管
+
+推理 Key 不覆盖 `accounts.json` 中用于查询余额/消费的 Key，而是存入独立的 `runtime_keys.json`，以稳定的看板账户 ID 关联：
+
+```json
+{
+  "version": 1,
+  "keys": {
+    "acct_0123456789": {
+      "api_key": "YOUR_OPENROUTER_INFERENCE_KEY",
+      "updated_at": 1790470000
+    }
+  }
+}
+```
+
+首次保存时文件自动创建，使用原子替换写入并设为 `0600`；文件已加入 `.gitignore`。API 只向浏览器返回 `present`、掩码和更新时间，不返回 Key 明文。覆盖只替换本地保管值；删除只删本地副本，不调用 OpenRouter 撤销接口。新增/覆盖前调用 `GET /api/v1/key` 校验凭证，不发起计费模型请求。
+
+推理 Key 管理接口默认关闭。仅在确认受信任访问路径后，通过环境变量 `OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1` 显式启用；`config.py` 在服务启动时读取该开关，修改后需要重启服务。
 
 ### 数据文件格式
 
@@ -145,11 +184,11 @@ chmod 600 config.json
 }
 ```
 
-两个数据模块均先写入同目录 `.tmp` 文件，再用 `os.replace` 替换目标文件，避免进程中断时留下半份 JSON。基准模块还能把旧单账户格式迁移到多账户格式。
+账户、推理 Key 与基准存储模块都先写入同目录临时文件，再用 `os.replace` 替换目标文件，避免进程中断时留下半份 JSON；密钥文件保持 `0600`。基准模块还能把旧单账户格式迁移到多账户格式。
 
 ## 6. 后端 API 契约
 
-除 `/healthz` 和静态文件外，业务 API 使用 `?token=<dashboard_token>` 校验访问口令。查询参数中的口令会出现在 URL 中，因此公网部署必须使用 HTTPS；反向代理访问日志也应避免记录完整查询字符串。
+普通看板业务 API 使用 `?token=<dashboard_token>`；推理 Key 保存、删除、检查和注入接口使用 `Authorization: Bearer <dashboard_token>`，并要求显式启用 `OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1`。查询参数中的口令会出现在 URL 中；浏览器提交 Key 的请求正文即使改用 Bearer 鉴权，HTTP 仍是明文传输，因此公网部署必须使用 HTTPS 或可信 VPN，并避免代理记录完整查询字符串。
 
 | 方法与路径 | 鉴权 | 作用 |
 |---|---|---|
@@ -158,8 +197,12 @@ chmod 600 config.json
 | `GET /api/accounts?token=…` | 是 | 返回脱敏账户列表和活动账户 ID |
 | `POST /api/accounts?token=…` | 是 | 校验 OpenRouter Key 后新增账户，JSON body 为 `{ "name": "…", "api_key": "…" }` |
 | `POST /api/accounts/rename?token=…` | 是 | JSON body 为 `{ "id": "acct_…", "name": "新名称" }` |
-| `DELETE /api/accounts?id=…&token=…` | 是 | 删除账户；至少保留一个账户 |
-| `GET /api/summary?token=…[&account=…]` | 是 | 返回余额、今日/月消费、趋势、App 和模型排行 |
+| `DELETE /api/accounts?id=…&token=…` | 查询口令 | 删除账户；至少保留一个账户，并删除其本地关联推理 Key |
+| `POST /api/accounts/inference-key` | Bearer + 功能开关 | 校验并新增/覆盖账户推理 Key；只调用 OpenRouter `/key`，不发模型请求 |
+| `DELETE /api/accounts/inference-key?id=…` | Bearer + 功能开关 | 删除该账户本地推理 Key；不撤销 OpenRouter 上的 Key |
+| `GET /api/accounts/injection-status` | Bearer + 功能开关 | 读取 Pi Agent 与运行中 Gateway 的凭证配置，与账户查询/推理 Key 比对；只返回账户名、类型和掩码 |
+| `POST /api/accounts/inject` | Bearer + 功能开关 | JSON body `{ "account_id": "acct_…", "target": "pi" | "gateway" | "both" }`；更新凭证并重启/健康检查 |
+| `GET /api/summary?token=…[&account=…]` | 查询口令 | 返回余额、今日/月消费、趋势、App 和模型排行 |
 | `GET /api/app_usage_today?token=…[&account=…]` | 是 | 返回今日按 App 汇总的调用/Token/消费，用于弹窗 |
 | `GET /api/app_usage_month?token=…[&account=…]` | 是 | 返回本月按 App 汇总的数据 |
 | `GET /api/latest_models?token=…` | 是 | 返回按厂商归类的最新模型新闻 |
@@ -299,7 +342,9 @@ OpenRouter 模型目录缓存 1 小时；标题上的刷新按钮通过 `refresh
 - **按钮：**充值按钮用绿色渐层与深色对比文字；刷新按钮为中性半透明小胶囊。hover 轻微提亮/上浮，active 轻微缩放，不出现浏览器默认厚重 3D 按钮样式。
 - **余额/警告：**剩余额度低于 USD 9 标红；今日消费超过 USD 50 时金额转警告色并配轻微呼吸感的感叹号。无效/暂缺数据显示“—”，不可显示伪造的 0。
 - **点击统计弹窗：**背景用约 55% 黑色遮罩，居中玻璃卡片最大宽约 420px、最高视口高度 80vh；标题栏下有分割线，主体独立纵向滚动，点击遮罩空白处或关闭按钮退出，Esc 也关闭。弹入动画约 0.18 秒。
-- **账户管理弹窗：**沿用同一模态框外观；账户列表项采用中性底色、当前账户绿色细边框，名称和脱敏 Key 分层；右侧为重命名/删除小图标。新增表单位于虚线顶边之后，依次显示可选备注名、密码型 API Key 输入、绿色提交按钮与明确的加载/成功/失败消息。
+- **账户管理弹窗：**沿用同一模态框外观；每行区分账户查询 Key 与推理 Key，两者都只显示掩码。推理 Key 表单选择账户后可新增/覆盖，另有本地删除操作。新增的「检查当前 Key」区域读取 Pi/Gateway 当前凭证配置，与账户 Key 比对并显示账户名、Key 类型、来源和掩码；不发模型请求。注入区选择 Pi Agent、Gateway 全局上游或两者，再确认后执行一键注入；需明确展示重启影响及 HTTP 明文测试警告。
+
+**典型操作流程：**「管理」→ 选择账户 → 输入并保存/覆盖推理 Key → 点击「检查当前 Key」确认当前 Pi/Gateway 所属账户 → 选择 Pi Agent、Gateway 或两者 → 点击「注入已保存 Key」并确认。保存时只调用 `/api/v1/key` 校验；注入后 Pi Agent 重启，Gateway 重建并等待健康检查。若本地删除 Key，已注入到服务中的凭证不会自动撤销或清除。
 - **登录框：**最大宽 320px、居中玻璃卡片；输入框与绿色全宽按钮上下排列。桌面可加大外边距，不改变手机阅读顺序。
 - **新闻交互：**新品项目单行排列、间距约 40px；最近 7 天项目显示 🎉，模型名绿色并链接到 OpenRouter。轨道无可见滚动条；自动滚动约 50px/秒，用户触屏/滚轮/拖拽/键盘交互后停约 1 秒再继续；鼠标可抓取拖动，键盘焦点有绿色 outline。
 - **模型名字与图标：**图标默认约 20×20px，圆角 6px，图像 `object-fit: contain` 并留少量内边距；窄屏价格卡图标缩至 18×18px。模型名超宽时单行省略，不能撑破列宽。
@@ -314,7 +359,7 @@ OpenRouter 模型目录缓存 1 小时；标题上的刷新按钮通过 `refresh
 
 ### 8.6 前端状态与验收清单
 
-- 登录口令键：`or_dashboard_token`；账户选择：`or_dashboard_account`；币种：`or_dashboard_currency`；主题：`or_dashboard_theme`。币种偏好不影响固定以 USD 显示的旗舰模型价格卡。不要把服务器 OpenRouter Key 写入浏览器存储。
+- 登录口令键：`or_dashboard_token`；账户选择：`or_dashboard_account`；币种：`or_dashboard_currency`；主题：`or_dashboard_theme`。币种偏好不影响固定以 USD 显示的旗舰模型价格卡。推理 Key 输入仅在提交时留在内存中，发送后清空；任何服务器 OpenRouter Key 都不得写入 `localStorage`、Service Worker 缓存或 API 响应明文。
 - 页面初始化先加载账户列表，再启动 summary、新闻和模型价格请求；summary 每 60 秒刷新。页面隐藏时暂停，重新可见时立即刷新一次。
 - 图表主题色根据 `html[data-theme]` 更新。折线用单调三次插值避免拐角与过冲，标签 16px，自适应抽样但始终标出最高点与最新点。
 - 窄屏需实际检查 390px 宽视口：顶部账户控件不挤出屏幕、统计卡保持两列、新闻栏不撑高、价格卡仍两列、模型长名省略、滚动列表可操作。
@@ -333,7 +378,7 @@ cp config.json.example config.json
 python server.py
 ```
 
-访问 `http://127.0.0.1:8080/`（若配置的端口不同，以 `config.json` 为准）。无需 API Key 的健康检查：
+访问 `http://127.0.0.1:8080/`（若配置的端口不同，以 `config.json` 为准）。本地需要测试推理 Key 管理时，先在 `config.json` 中设置非默认 `dashboard_token`，再临时用 `OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1 python server.py` 启动；功能默认关闭，且只能使用临时、低额度测试 Key。无需 API Key 的健康检查：
 
 ```bash
 curl -fsS http://127.0.0.1:8080/healthz
@@ -345,7 +390,7 @@ curl -fsS http://127.0.0.1:8080/healthz
 python -m unittest discover -s tests -t . -v
 ```
 
-当前测试覆盖：Key 脱敏、账户 ID 稳定性、日期边界、基准差分、数据异常过滤、模型版本与产品线筛选、价格单位转换、Intelligence Index 有值与缺失值。测试不访问 OpenRouter、不使用真实账户 Key。提交前建议同时执行：
+当前测试覆盖：账户与推理 Key 脱敏、权限和账户关联、查询/推理 Key 匹配、注入配置更新与失败回滚、管理接口鉴权、日期边界、基准差分、模型版本/产品线筛选、价格单位转换及 Intelligence Index 缺失值。单元测试不访问 OpenRouter、不使用真实账户 Key，也不会重启实际 Pi/Gateway 服务。提交前建议同时执行：
 
 ```bash
 python -m compileall -q .
@@ -398,7 +443,26 @@ PrivateTmp=true
 WantedBy=multi-user.target
 ```
 
-配置文件中存有上游 API Key，建议限制为服务用户可读，并确保 systemd 服务用户可信。启用服务：
+配置文件中存有上游 API Key，建议限制为服务用户可读，并确保 systemd 服务用户可信。上面的 `or-dashboard` 非 root 示例仅适用于普通看板功能；当前推理 Key 注入实现还要写入 Pi/Gateway 的 root 配置并重启目标服务，因此未经权限适配时，非 root 服务不能执行注入。
+
+### 可选：启用推理 Key 检查与一键注入
+
+管理接口默认关闭。仅在完成 HTTPS/可信 VPN 和访问控制后，在 systemd `[Service]` 中显式配置：
+
+```ini
+Environment=OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1
+```
+
+之后执行 `systemctl daemon-reload` 并重启看板。这个开关只启用 HTTP API，不授予文件或服务权限。
+
+当前 `key_injection.py` 的参考部署目标是：
+
+- Pi 凭证：`/root/.pi/agent/auth.json`；重启 `pi-agent.service`。
+- Gateway 凭证：`/root/openrouter-api-gateway/.env` 中的 `OPENROUTER_API_KEY`；用 `docker-compose up -d --force-recreate gateway` 重建并等待健康检查。
+
+在其他机器复刻时，先调整 `key_injection.py` 顶部的路径与服务名，并明确授权运行账户访问这些目标。当前检查可识别 Pi 进程环境中的 `OPENROUTER_API_KEY`，但注入器只更新 `auth.json`；若检查显示 Key 来源为进程环境，应先协调该环境变量，否则环境中的 Key 仍会被检查到。不要为图方便给公网 HTTP 处理进程开放任意 root/shell 权限；生产部署应把固定的“写入指定凭证 + 重启白名单服务”拆到受限 helper/sudoers 规则中，或使用等价的最小权限方案。Pi Agent 或 Gateway 重启时会短暂中断服务；选择 Gateway 目标会切换所有 Gateway 客户端共用的上游账户，不修改 `CLIENT_API_KEYS`。
+
+启用服务：
 
 ```bash
 sudo systemctl daemon-reload
@@ -432,6 +496,10 @@ dashboard.example.com {
 |---|---|
 | 登录总是 401 | 检查 `dashboard_token` 与 URL token 是否一致；配置改动后重启服务；不要使用默认口令上线 |
 | `/api/accounts` 返回空列表 | 检查 config 中 Key 字段拼写；确认 `accounts.json` 是否已经创建并成为运行时主数据 |
+| 推理 Key 管理接口返回 401 | 检查请求使用 `Authorization: Bearer`、dashboard token 是否为非默认值，以及 `OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1` 是否已配置并重启 |
+| 检查结果显示未匹配账户 | 比对只覆盖 `accounts.json` 查询 Key 与 `runtime_keys.json` 推理 Key；确认要找的 Key 已登记。响应只显示掩码，不执行模型请求 |
+| 注入时 Pi/Gateway 重启失败 | 检查 `key_injection.py` 中服务名/路径、看板服务用户权限、systemd 与 Docker Compose 可用性；失败会尝试恢复原配置 |
+| Gateway 切换后其他客户端额度也变化 | Gateway 使用单个全局 `OPENROUTER_API_KEY`；切换影响所有客户端，`CLIENT_API_KEYS` 只是客户端鉴权 Key |
 | 看板金额显示 `—` | 检查 Key 权限、OpenRouter API 连通性与 `degraded`；查看 `journalctl` 中对应上游警告 |
 | 今日金额与本地午夜不同 | 项目使用 UTC 日界，即北京时间 08:00；确认服务器/cron 时区配置和 Analytics 区间 |
 | 今日/本月 App 弹窗与总额不一致 | 确认调用 Analytics 时显式传入 `granularity` 和准确 `time_range` |
@@ -445,9 +513,11 @@ dashboard.example.com {
 
 - 用强随机访问口令替换 `changeme`；不要复用 OpenRouter API Key 作为看板口令。
 - Key 与口令只放在服务器配置/运行时存储；`.gitignore` 是防误提交措施，不是访问控制。
-- 配置与运行时 JSON 设为最小权限，定期备份并加密备份介质。
-- 仅通过 HTTPS 使用；由于 token 位于 query string，代理和监控日志应隐藏查询参数。
-- 不把 `accounts.json`、`config.json`、`daily_baseline.json` 或任何包含密钥的备份上传到公开仓库。
+- `accounts.json` 和 `runtime_keys.json` 都含明文 Key；设为 `0600`，限制所有者，备份时加密，不要提交 Git。
+- 仅通过 HTTPS 或可信 VPN 使用。HTTP 会明文传输访问口令和新提交的推理 Key；测试只用临时、低额度 Key，禁止在公网 HTTP 输入生产 Key。
+- 推理 Key 管理接口默认关闭；启用 `OR_ENABLE_RUNTIME_KEY_MANAGEMENT=1` 前确认访问路径与最小权限。当前参考服务以 root 部署，仅为能写入既有 Pi/Gateway 配置；不要直接复制到公网生产环境而不做权限隔离。
+- 检查接口仅对本机凭证配置做匹配，不验证 OpenRouter 模型调用；注入只替换本地配置，不会撤销远端 Key。Gateway 是全局上游，切换将影响所有 Gateway 客户端。
+- 不把 `accounts.json`、`runtime_keys.json`、`config.json`、`daily_baseline.json` 或任何包含密钥的备份上传到公开仓库。
 - 定期更新 Python 与 `requests`；对外发布代码时也检查依赖和图标授权。
 - 修改接口或计算逻辑后运行离线测试，保留实际 API 错误时的 `null` / degraded 状态，不要把错误静默改成零值。
 - 避免在日志、截图、issue、聊天记录中粘贴真实 Key 或访问口令；一旦暴露立即撤销/轮换。
