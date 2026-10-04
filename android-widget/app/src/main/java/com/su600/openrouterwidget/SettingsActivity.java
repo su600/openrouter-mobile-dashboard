@@ -40,6 +40,7 @@ public class SettingsActivity extends Activity {
     private EditText urlField;
     private EditText passwordField;
     private Spinner accountSpinner;
+    private Spinner currencySpinner;
     private TextView message;
     private Button saveButton;
     private List<WidgetApi.Account> accounts = new ArrayList<>();
@@ -52,6 +53,7 @@ public class SettingsActivity extends Activity {
         buildScreen();
         String savedBaseUrl = WidgetStore.baseUrl(this);
         urlField.setText(savedBaseUrl);
+        WidgetStore.save(this, savedBaseUrl, WidgetStore.accountId(this));
         saveButton.setVisibility(View.GONE);
         try {
             savedDashboardToken = SecretStore.readDashboardToken(this);
@@ -135,6 +137,25 @@ public class SettingsActivity extends Activity {
         LinearLayout.LayoutParams spinnerLp = matchWrap();
         spinnerLp.topMargin = dp(7);
         card.addView(accountSpinner, spinnerLp);
+
+        TextView currencyLabel = label("小组件金额币种");
+        LinearLayout.LayoutParams currencyLabelLp = wrap();
+        currencyLabelLp.topMargin = dp(16);
+        card.addView(currencyLabel, currencyLabelLp);
+        currencySpinner = new Spinner(this);
+        currencySpinner.setPopupBackgroundDrawable(roundRect(CARD_BG, dp(12), BORDER));
+        ArrayAdapter<String> currencyAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, new String[]{"人民币 (CNY)", "美元 (USD)"});
+        currencyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        currencySpinner.setAdapter(currencyAdapter);
+        currencySpinner.setSelection(WidgetStore.CURRENCY_USD.equals(WidgetStore.currency(this)) ? 1 : 0);
+        LinearLayout.LayoutParams currencySpinnerLp = matchWrap();
+        currencySpinnerLp.topMargin = dp(7);
+        card.addView(currencySpinner, currencySpinnerLp);
+        TextView currencyNote = text("仅改变小组件的金额显示；人民币按看板汇率换算。", 11, MUTED, false);
+        LinearLayout.LayoutParams currencyNoteLp = wrap();
+        currencyNoteLp.topMargin = dp(6);
+        card.addView(currencyNote, currencyNoteLp);
 
         saveButton = button("保存并刷新小组件");
         LinearLayout.LayoutParams saveLp = matchWrap();
@@ -259,7 +280,9 @@ public class SettingsActivity extends Activity {
                 return;
             }
             SecretStore.saveToken(this, pendingWidgetToken);
-            WidgetStore.save(this, pendingBaseUrl, account.id);
+            String currency = currencySpinner.getSelectedItemPosition() == 1
+                    ? WidgetStore.CURRENCY_USD : WidgetStore.CURRENCY_CNY;
+            WidgetStore.save(this, pendingBaseUrl, account.id, currency);
             WidgetProvider.refreshAll(this);
             setResult(Activity.RESULT_OK);
             Toast.makeText(this, "看板和小组件设置已保存", Toast.LENGTH_SHORT).show();

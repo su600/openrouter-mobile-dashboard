@@ -95,6 +95,7 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
+                    android:id="@+id/widget_balance_label"
                     android:text="@string/widget_balance_label"
                     android:textColor="#8b8fa3"
                     android:textSize="12sp" />
@@ -125,6 +126,7 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
+                    android:id="@+id/widget_total_label"
                     android:text="@string/widget_total_label"
                     android:textColor="#8b8fa3"
                     android:textSize="12sp" />
@@ -157,6 +159,7 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
+                    android:id="@+id/widget_month_label"
                     android:text="@string/widget_month_label"
                     android:textColor="#8b8fa3"
                     android:textSize="12sp" />
@@ -187,6 +190,7 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
+                    android:id="@+id/widget_today_label"
                     android:text="@string/widget_today_label"
                     android:textColor="#8b8fa3"
                     android:textSize="12sp" />

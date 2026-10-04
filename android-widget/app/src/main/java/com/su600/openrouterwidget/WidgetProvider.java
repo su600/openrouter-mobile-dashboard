@@ -101,17 +101,20 @@ public class WidgetProvider extends AppWidgetProvider {
             RemoteViews views = baseViews(context);
             setActions(context, views, id);
             if (summary != null) {
+                String currency = WidgetStore.currency(context);
+                double rate = WidgetStore.CURRENCY_USD.equals(currency) ? 1.0 : summary.usdToCny;
+                String symbol = WidgetStore.CURRENCY_USD.equals(currency) ? "$" : "¥";
                 views.setTextViewText(R.id.widget_title, context.getString(R.string.widget_overview_title));
                 views.setTextViewText(R.id.widget_account_name, summary.accountName);
                 views.setTextViewText(R.id.widget_remaining,
-                        formatCny(summary.remaining, summary.usdToCny, 2));
+                        formatAmount(summary.remaining, rate, 2, symbol));
                 views.setTextViewText(R.id.widget_total_usage,
-                        formatCny(summary.totalUsage, summary.usdToCny, 2));
+                        formatAmount(summary.totalUsage, rate, 2, symbol));
                 views.setTextViewText(R.id.widget_month,
-                        formatCny(summary.month, summary.usdToCny, 2));
+                        formatAmount(summary.month, rate, 2, symbol));
                 views.setTextViewText(R.id.widget_today,
-                        formatCny(summary.today, summary.usdToCny, 4));
-                setAppsUsage(views, summary.appsLast30Days, summary.usdToCny);
+                        formatAmount(summary.today, rate, 4, symbol));
+                setAppsUsage(views, summary.appsLast30Days, rate, symbol);
             } else {
                 views.setTextViewText(R.id.widget_title, errorTitle(error));
                 views.setTextViewText(R.id.widget_account_name, "点卡片检查设置");
@@ -119,13 +122,15 @@ public class WidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(R.id.widget_total_usage, "—");
                 views.setTextViewText(R.id.widget_month, "—");
                 views.setTextViewText(R.id.widget_today, "—");
-                setAppsUsage(views, null, Double.NaN);
+                setAppsUsage(views, null, Double.NaN,
+                        WidgetStore.CURRENCY_USD.equals(WidgetStore.currency(context)) ? "$" : "¥");
             }
             manager.updateAppWidget(id, views);
         }
     }
 
-    private static void setAppsUsage(RemoteViews views, List<WidgetApi.AppUsage> apps, double rate) {
+    private static void setAppsUsage(RemoteViews views, List<WidgetApi.AppUsage> apps,
+                                     double rate, String symbol) {
         List<WidgetApi.AppUsage> sorted = apps == null ? new ArrayList<>() : new ArrayList<>(apps);
         if (sorted.isEmpty()) {
             sorted.add(new WidgetApi.AppUsage("Codex", Double.NaN));
@@ -143,7 +148,8 @@ public class WidgetProvider extends AppWidgetProvider {
                     : new WidgetApi.AppUsage(defaults[i], Double.NaN);
             views.setImageViewResource(iconIds[i], appIcon(app.name));
             views.setTextViewText(nameIds[i], app.name);
-            views.setTextViewText(valueIds[i], formatCny(app.usage, rate, 1));
+            int decimals = "$".equals(symbol) ? 4 : 1;
+            views.setTextViewText(valueIds[i], formatAmount(app.usage, rate, decimals, symbol));
         }
     }
 
@@ -168,13 +174,22 @@ public class WidgetProvider extends AppWidgetProvider {
         return "刷新失败";
     }
 
-    private static String formatCny(double usd, double rate, int decimals) {
+    private static void setCurrencyLabels(RemoteViews views, String currency) {
+        String code = WidgetStore.CURRENCY_USD.equals(currency) ? "USD" : "CNY";
+        views.setTextViewText(R.id.widget_balance_label, "剩余额度 (" + code + ")");
+        views.setTextViewText(R.id.widget_total_label, "累计消费 (" + code + ")");
+        views.setTextViewText(R.id.widget_month_label, "本月累计消费 (" + code + ")");
+        views.setTextViewText(R.id.widget_today_label, "今日消费 · UTC (" + code + ")");
+    }
+
+    private static String formatAmount(double usd, double rate, int decimals, String symbol) {
         if (Double.isNaN(usd) || Double.isInfinite(usd)) return "—";
-        return String.format(Locale.US, "¥%,." + decimals + "f", usd * rate);
+        return String.format(Locale.US, "%s%,." + decimals + "f", symbol, usd * rate);
     }
 
     private static RemoteViews baseViews(Context context) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_account);
+        setCurrencyLabels(views, WidgetStore.currency(context));
         Intent open = new Intent(context, MainActivity.class);
         PendingIntent openPending = PendingIntent.getActivity(context, 20, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
