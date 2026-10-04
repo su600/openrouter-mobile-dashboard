@@ -535,6 +535,22 @@
   .currency-toggle.active {
     color: var(--accent);
   }
+  .rate-edit-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    border-radius: 8px;
+    height: 30px;
+    min-width: 30px;
+    padding: 0 6px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .rate-edit-btn:hover { background: var(--chip-bg); color: var(--text); }
+  .rate-edit-btn:active { transform: scale(0.94); }
+  .rate-edit-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .header-top {
     display: flex;
     justify-content: space-between;
@@ -1084,6 +1100,7 @@
             <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" title="切换主题">🌙</button>
             <span class="toggle-divider"></span>
             <button class="currency-toggle" id="currency-btn" onclick="toggleCurrency()" title="切换币种">USD</button>
+            <button class="rate-edit-btn" onclick="editExchangeRate()" title="设置 USD/CNY 汇率" aria-label="设置 USD/CNY 汇率">✎</button>
           </div>
         </div>
         <div class="rate-note" id="rate-note"></div>
@@ -1275,6 +1292,7 @@ let currentCurrency = localStorage.getItem("or_dashboard_currency") || "USD";
 let lastData = null;
 let activeSummaryRequest = null;
 let exchangeRate = 7.1;
+let serverExchangeRate = 7.1;
 let modelPriceData = null;
 let refreshTimer = null;
 
@@ -1296,6 +1314,31 @@ function toggleCurrency() {
   const btn = document.getElementById("currency-btn");
   btn.innerText = currentCurrency;
   btn.classList.toggle("active", currentCurrency === "CNY");
+  if (lastData) render(lastData);
+}
+
+function editExchangeRate() {
+  const storageKey = "or_dashboard_usd_to_cny_rate";
+  const savedRate = localStorage.getItem(storageKey);
+  const input = window.prompt(
+    "设置 USD → CNY 汇率（每 1 USD 可兑换多少 CNY）。留空并确认可恢复服务器配置。",
+    savedRate || String(serverExchangeRate)
+  );
+  if (input === null) return;
+
+  const value = input.trim();
+  if (!value) {
+    localStorage.removeItem(storageKey);
+    exchangeRate = serverExchangeRate;
+  } else {
+    const rate = Number(value);
+    if (!Number.isFinite(rate) || rate <= 0 || rate > 1000) {
+      window.alert("汇率必须是大于 0 且不超过 1000 的有效数字。");
+      return;
+    }
+    localStorage.setItem(storageKey, String(rate));
+    exchangeRate = rate;
+  }
   if (lastData) render(lastData);
 }
 
@@ -1602,7 +1645,14 @@ const trendValueLabelsPlugin = {
 
 function render(data) {
   lastData = data;
-  exchangeRate = (data.exchange_rate && data.exchange_rate.usd_to_cny) || 7.1;
+  const configuredRate = Number(data.exchange_rate && data.exchange_rate.usd_to_cny);
+  serverExchangeRate = Number.isFinite(configuredRate) && configuredRate > 0 && configuredRate <= 1000
+    ? configuredRate
+    : 7.1;
+  const storedRate = localStorage.getItem("or_dashboard_usd_to_cny_rate");
+  const savedRate = Number(storedRate);
+  const hasCustomRate = storedRate !== null && Number.isFinite(savedRate) && savedRate > 0 && savedRate <= 1000;
+  exchangeRate = hasCustomRate ? savedRate : serverExchangeRate;
   const acc = data.account;
   const unitLabel = currentCurrency === "CNY" ? "CNY" : "USD";
 
@@ -1632,7 +1682,7 @@ function render(data) {
   document.getElementById("today-usage-label").innerText = `今日消费 · UTC (${unitLabel})${sourceNote}`;
 
   const rateNoteEl = document.getElementById("rate-note");
-  rateNoteEl.innerText = `汇率: 1 USD = ${exchangeRate} CNY (含手续费)`;
+  rateNoteEl.innerText = `汇率: 1 USD = ${exchangeRate} CNY${hasCustomRate ? " (本机自定义)" : " (服务器配置)"}`;
   rateNoteEl.classList.toggle("show", currentCurrency === "CNY");
 
   const btn = document.getElementById("currency-btn");
