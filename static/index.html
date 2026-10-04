@@ -1319,7 +1319,10 @@ function toggleCurrency() {
 
 function editExchangeRate() {
   const storageKey = "or_dashboard_usd_to_cny_rate";
-  const savedRate = localStorage.getItem(storageKey);
+  const nativeBridge = window.AndroidDashboard;
+  const savedRate = nativeBridge && typeof nativeBridge.getExchangeRate === "function"
+    ? (nativeBridge.getExchangeRate() || localStorage.getItem(storageKey))
+    : localStorage.getItem(storageKey);
   const input = window.prompt(
     "设置 USD → CNY 汇率（每 1 USD 可兑换多少 CNY）。留空并确认可恢复服务器配置。",
     savedRate || String(serverExchangeRate)
@@ -1329,6 +1332,10 @@ function editExchangeRate() {
   const value = input.trim();
   if (!value) {
     localStorage.removeItem(storageKey);
+    const nativeBridge = window.AndroidDashboard;
+    if (nativeBridge && typeof nativeBridge.saveExchangeRate === "function") {
+      nativeBridge.saveExchangeRate("");
+    }
     exchangeRate = serverExchangeRate;
   } else {
     const rate = Number(value);
@@ -1337,6 +1344,10 @@ function editExchangeRate() {
       return;
     }
     localStorage.setItem(storageKey, String(rate));
+    const nativeBridge = window.AndroidDashboard;
+    if (nativeBridge && typeof nativeBridge.saveExchangeRate === "function") {
+      nativeBridge.saveExchangeRate(String(rate));
+    }
     exchangeRate = rate;
   }
   if (lastData) render(lastData);
@@ -1649,7 +1660,24 @@ function render(data) {
   serverExchangeRate = Number.isFinite(configuredRate) && configuredRate > 0 && configuredRate <= 1000
     ? configuredRate
     : 7.1;
-  const storedRate = localStorage.getItem("or_dashboard_usd_to_cny_rate");
+  let storedRate = localStorage.getItem("or_dashboard_usd_to_cny_rate");
+  const rateBridge = window.AndroidDashboard;
+  if (rateBridge && typeof rateBridge.getExchangeRate === "function") {
+    const nativeRate = rateBridge.getExchangeRate();
+    const parsedNativeRate = Number(nativeRate);
+    if (nativeRate && Number.isFinite(parsedNativeRate) && parsedNativeRate > 0 && parsedNativeRate <= 1000) {
+      storedRate = nativeRate;
+      localStorage.setItem("or_dashboard_usd_to_cny_rate", nativeRate);
+    } else if (storedRate === null && typeof rateBridge.saveExchangeRate === "function") {
+      rateBridge.saveExchangeRate("");
+    } else if (storedRate !== null) {
+      const parsedStoredRate = Number(storedRate);
+      if (Number.isFinite(parsedStoredRate) && parsedStoredRate > 0 && parsedStoredRate <= 1000
+          && typeof rateBridge.saveExchangeRate === "function") {
+        rateBridge.saveExchangeRate(storedRate);
+      }
+    }
+  }
   const savedRate = Number(storedRate);
   const hasCustomRate = storedRate !== null && Number.isFinite(savedRate) && savedRate > 0 && savedRate <= 1000;
   exchangeRate = hasCustomRate ? savedRate : serverExchangeRate;

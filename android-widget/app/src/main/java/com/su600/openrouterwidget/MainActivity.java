@@ -170,6 +170,7 @@ public class MainActivity extends Activity {
                 // and onProgressChanged never separately reached 100.
                 if (isDashboardOrigin(Uri.parse(url))) {
                     view.evaluateJavascript("localStorage.removeItem('or_dashboard_token');", null);
+                    syncExchangeRateBridge(view);
                 }
                 revealDashboard();
             }
@@ -245,6 +246,21 @@ public class MainActivity extends Activity {
         loadingStatus.setOnClickListener(null);
         uiHandler.postDelayed(loadTimeout, 20000);
         webView.loadUrl(dashboardUrl);
+    }
+
+    private void syncExchangeRateBridge(WebView view) {
+        String script = "(function(){try{"
+                + "var key='or_dashboard_usd_to_cny_rate';"
+                + "var sync=function(value){try{AndroidDashboard.saveExchangeRate(value==null?'':String(value));}catch(e){}};"
+                + "var nativeRate=AndroidDashboard.getExchangeRate();"
+                + "if(nativeRate)localStorage.setItem(key,nativeRate);else sync(localStorage.getItem(key));"
+                + "var storage=Storage.prototype;"
+                + "if(!storage.__orDashboardRateSync){var set=storage.setItem,remove=storage.removeItem;"
+                + "storage.setItem=function(k,v){set.apply(this,arguments);if(k===key)sync(v);};"
+                + "storage.removeItem=function(k){remove.apply(this,arguments);if(k===key)sync(null);};"
+                + "storage.__orDashboardRateSync=true;}"
+                + "}catch(e){}})();";
+        view.evaluateJavascript(script, null);
     }
 
     private void revealDashboard() {
@@ -334,6 +350,20 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void clearToken() {
             SecretStore.clearDashboardToken(MainActivity.this);
             dashboardToken = "";
+        }
+
+        @JavascriptInterface public void saveExchangeRate(String rate) {
+            try {
+                WidgetStore.saveCustomExchangeRate(MainActivity.this, rate);
+                WidgetProvider.refreshAll(MainActivity.this);
+            } catch (Exception ignored) {
+                // Keep the dashboard's in-page rate functional even if native sync fails.
+            }
+        }
+
+        @JavascriptInterface public String getExchangeRate() {
+            String customRate = WidgetStore.customExchangeRate(MainActivity.this);
+            return customRate == null ? "" : customRate;
         }
     }
 

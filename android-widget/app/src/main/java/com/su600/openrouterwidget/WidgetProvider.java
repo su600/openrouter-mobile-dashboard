@@ -102,7 +102,8 @@ public class WidgetProvider extends AppWidgetProvider {
             setActions(context, views, id);
             if (summary != null) {
                 String currency = WidgetStore.currency(context);
-                double rate = WidgetStore.CURRENCY_USD.equals(currency) ? 1.0 : summary.usdToCny;
+                double rate = WidgetStore.CURRENCY_USD.equals(currency) ? 1.0
+                        : WidgetStore.usdToCnyRate(context, summary.usdToCny);
                 String symbol = WidgetStore.CURRENCY_USD.equals(currency) ? "$" : "¥";
                 views.setTextViewText(R.id.widget_title, context.getString(R.string.widget_overview_title));
                 views.setTextViewText(R.id.widget_account_name, summary.accountName);
