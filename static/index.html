@@ -1193,7 +1193,6 @@
       <div class="card-title">
         <span>旗舰模型价格对比 · GPT vs Claude</span>
         <div class="header-actions">
-          <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
           <button class="refresh-btn latest-model-btn" id="latest-model-btn" onclick="openLatestModelModal()" title="查看 Claude / GPT 三档 latest 别名实际指向的模型">Latest Model</button>
           <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">刷新</button>
         </div>
@@ -2056,8 +2055,6 @@ function openRouterModelUrl(modelId) {
 function renderModelPrices() {
   const box = document.getElementById("price-compare");
   if (!box) return;
-  const noteEl = document.getElementById("price-unit-note");
-  if (noteEl) noteEl.innerText = "USD / 百万 tokens";
   if (!modelPriceData || !modelPriceData.families || modelPriceData.families.length === 0) {
     box.innerHTML = '<div class="price-col-empty">暂无价格数据</div>';
     return;
