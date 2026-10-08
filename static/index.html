@@ -994,6 +994,39 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
+  .latest-model-text {
+    min-width: 0;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .latest-model-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 12px;
+  }
+  .latest-model-line code {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--text-faint);
+    background: none;
+    padding: 0;
+    word-break: break-all;
+  }
+  .latest-model-id {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+  }
+  .latest-model-name {
+    color: var(--text-faint);
+    font-family: inherit;
+    word-break: break-word;
+  }
   .price-row-name .flag-badge {
     flex-shrink: 0;
     font-size: 9px;
@@ -2021,21 +2054,16 @@ function renderLatestModels(items) {
   const body = document.getElementById("latest-model-modal-body");
   const groups = ["Claude", "GPT"].map(family => {
     const rows = items.filter(it => it.family === family).map(it => {
-      const modelName = it.found
-        ? `<span class="name-txt">${escapeHtml(it.resolved_name || it.resolved_id)}</span>`
-        : `<span class="price-col-empty">未找到别名</span>`;
-      const idLine = it.found
-        ? `<a class="price-model-link" href="${escapeHtml(openRouterModelUrl(it.resolved_id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.resolved_id)}</a>`
-        : "";
+      const line2 = it.found
+        ? `<a class="price-model-link latest-model-id" href="${escapeHtml(openRouterModelUrl(it.resolved_id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.resolved_id)}</a>${it.resolved_name ? ` <span class="latest-model-name">${escapeHtml(it.resolved_name)}</span>` : ""}`
+        : `<span class="latest-model-name">未找到别名</span>`;
       return `
       <div class="price-row">
         <div class="price-row-name">
           ${getModelIcon(it.resolved_id || it.alias)}
-          <div style="min-width:0;">
-            <div class="price-row-meta"><span>${escapeHtml(it.tier)} latest</span></div>
-            <div>${modelName}</div>
-            <div class="price-row-meta"><code>${escapeHtml(it.alias)}</code></div>
-            ${idLine ? `<div class="price-row-meta">${idLine}</div>` : ""}
+          <div class="latest-model-text">
+            <div class="latest-model-line"><span>${escapeHtml(it.tier)} latest</span><code>${escapeHtml(it.alias)}</code></div>
+            <div class="latest-model-line">${line2}</div>
           </div>
         </div>
       </div>`;
