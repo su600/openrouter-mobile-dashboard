@@ -404,6 +404,13 @@
     transition: background 0.15s ease, transform 0.15s ease;
   }
   .refresh-btn:hover { background: var(--chip-border); }
+  .latest-model-btn {
+    background: rgba(74,222,128,0.14);
+    border: 1px solid rgba(74,222,128,0.5);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .latest-model-btn:hover { background: rgba(74,222,128,0.24); }
   .refresh-btn:active { transform: scale(0.95); }
   .refresh-btn:disabled { opacity: .65; cursor: wait; }
   .header-toggle-group {
@@ -1187,7 +1194,7 @@
         <span>旗舰模型价格对比 · GPT vs Claude</span>
         <div class="header-actions">
           <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
-          <button class="refresh-btn" id="latest-model-btn" onclick="openLatestModelModal()" title="查看 Claude / GPT 三档 latest 别名实际指向的模型">Latest Model</button>
+          <button class="refresh-btn latest-model-btn" id="latest-model-btn" onclick="openLatestModelModal()" title="查看 Claude / GPT 三档 latest 别名实际指向的模型">Latest Model</button>
           <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">刷新</button>
         </div>
       </div>
@@ -1993,9 +2000,14 @@ async function openLatestModelModal() {
     return;
   }
   try {
-    const resp = await fetch(`/api/latest_resolved?token=${encodeURIComponent(token)}`);
-    const data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+    const resp = await fetch(`/api/latest_resolved?token=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const text = await resp.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { data = null; }
+    if (!resp.ok || !data || data.error) {
+      const reason = (data && data.error) || (text ? text.slice(0, 120) : "空响应");
+      throw new Error(`HTTP ${resp.status}：${reason}`);
+    }
     renderLatestModels(data.models || []);
   } catch (e) {
     body.innerHTML = `<div class="price-col-empty">加载失败：${escapeHtml(e.message)}</div>`;

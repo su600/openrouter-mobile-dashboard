@@ -320,10 +320,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._unauthorized()
             try:
                 force = qs.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
-                self._send_json(api.get_latest_models_resolved_cached(force=force))
+                self._send_json(api.get_latest_models_resolved_cached(force=force), cache_control="no-store")
             except Exception as e:
                 logger.warning("解析 latest 模型失败: %s", e)
-                self._send_json({"error": str(e)}, 500)
+                self._send_json({"error": str(e)}, 500, cache_control="no-store")
             return
 
         if parsed.path == "/api/app_usage_today":
