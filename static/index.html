@@ -1187,6 +1187,7 @@
         <span>旗舰模型价格对比 · GPT vs Claude</span>
         <div class="header-actions">
           <span class="price-io" id="price-unit-note">USD / 百万 tokens</span>
+          <button class="refresh-btn" id="latest-model-btn" onclick="openLatestModelModal()" title="查看 Claude / GPT 三档 latest 别名实际指向的模型">Latest Model</button>
           <button class="refresh-btn" id="price-refresh-btn" onclick="refreshModelPrices()" title="重新拉取最新价格">刷新</button>
         </div>
       </div>
@@ -1214,6 +1215,18 @@
       <ul class="rank-list" id="app-usage-modal-list">
         <li class="empty">加载中...</li>
       </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="latest-model-modal" onclick="if(event.target===this) closeLatestModelModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Latest Model · 实际指向</span>
+      <button class="modal-close" onclick="closeLatestModelModal()">✕</button>
+    </div>
+    <div class="modal-body" id="latest-model-modal-body">
+      <div class="price-col-empty">加载中...</div>
     </div>
   </div>
 </div>
@@ -1493,6 +1506,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeAppUsageModal();
     closeAccountsModal();
+    closeLatestModelModal();
   }
 });
 
@@ -1965,6 +1979,59 @@ async function loadModelPrices(force) {
 
 function refreshModelPrices() {
   loadModelPrices(true);
+}
+
+// ===== Latest Model：Claude / GPT 三档 latest 别名解析 =====
+async function openLatestModelModal() {
+  const modal = document.getElementById("latest-model-modal");
+  const body = document.getElementById("latest-model-modal-body");
+  modal.classList.add("show");
+  body.innerHTML = '<div class="price-col-empty">加载中...</div>';
+  const token = getToken();
+  if (!token) {
+    body.innerHTML = '<div class="price-col-empty">未登录</div>';
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/latest_resolved?token=${encodeURIComponent(token)}`);
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+    renderLatestModels(data.models || []);
+  } catch (e) {
+    body.innerHTML = `<div class="price-col-empty">加载失败：${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function closeLatestModelModal() {
+  document.getElementById("latest-model-modal").classList.remove("show");
+}
+
+function renderLatestModels(items) {
+  const body = document.getElementById("latest-model-modal-body");
+  const groups = ["Claude", "GPT"].map(family => {
+    const rows = items.filter(it => it.family === family).map(it => {
+      const modelName = it.found
+        ? `<span class="name-txt">${escapeHtml(it.resolved_name || it.resolved_id)}</span>`
+        : `<span class="price-col-empty">未找到别名</span>`;
+      const idLine = it.found
+        ? `<a class="price-model-link" href="${escapeHtml(openRouterModelUrl(it.resolved_id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.resolved_id)}</a>`
+        : "";
+      return `
+      <div class="price-row">
+        <div class="price-row-name">
+          ${getModelIcon(it.resolved_id || it.alias)}
+          <div style="min-width:0;">
+            <div class="price-row-meta"><span>${escapeHtml(it.tier)} latest</span></div>
+            <div>${modelName}</div>
+            <div class="price-row-meta"><code>${escapeHtml(it.alias)}</code></div>
+            ${idLine ? `<div class="price-row-meta">${idLine}</div>` : ""}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="price-col-head"><span>${family}</span></div>${rows || '<div class="price-col-empty">暂无数据</div>'}`;
+  });
+  body.innerHTML = groups.join("");
 }
 
 function openRouterModelUrl(modelId) {

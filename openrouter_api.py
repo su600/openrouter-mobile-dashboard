@@ -277,6 +277,74 @@ def get_flagship_prices_cached(force=False):
         return data
 
 
+# ===== Latest 模型解析（Claude / GPT 三档 latest 别名 -> 实际模型）=====
+# OpenRouter 的 ~vendor/…-latest 别名会重定向到该家族的最新模型，
+# 模型列表中每个别名条目带有 alias_target 字段，即为当前实际指向的模型。
+LATEST_ALIAS_SPECS = [
+    {"family": "Claude", "tier": "Opus", "alias": "~anthropic/claude-opus-latest"},
+    {"family": "Claude", "tier": "Sonnet", "alias": "~anthropic/claude-sonnet-latest"},
+    {"family": "Claude", "tier": "Haiku", "alias": "~anthropic/claude-haiku-latest"},
+    {"family": "GPT", "tier": "Astra", "alias": "~openai/gpt-astra-latest"},
+    {"family": "GPT", "tier": "Sol", "alias": "~openai/gpt-sol-latest"},
+    {"family": "GPT", "tier": "Luna", "alias": "~openai/gpt-luna-latest"},
+]
+_latest_models_cache = {"data": None, "ts": 0}
+_latest_models_cache_lock = threading.Lock()
+LATEST_MODELS_CACHE_TTL = 3600
+
+
+def build_latest_models(models):
+    """从 OpenRouter 模型列表解析各 latest 别名实际指向的模型（纯函数，便于测试）。"""
+    by_id = {m.get("id"): m for m in models if isinstance(m, dict)}
+    result = []
+    for spec in LATEST_ALIAS_SPECS:
+        alias = spec["alias"]
+        entry = {
+            "family": spec["family"],
+            "tier": spec["tier"],
+            "alias": alias,
+            "resolved_id": None,
+            "resolved_name": None,
+            "found": False,
+        }
+        m = by_id.get(alias)
+        if m is not None:
+            target = m.get("alias_target") or {}
+            slug = target.get("slug")
+            full_name = target.get("name") or slug
+            entry.update(
+                {
+                    "found": True,
+                    "resolved_id": slug,
+                    "resolved_name": full_name.split(": ", 1)[-1] if full_name else None,
+                }
+            )
+        result.append(entry)
+    return result
+
+
+def fetch_latest_models_resolved():
+    resp = SESSION.get("https://openrouter.ai/api/v1/models", timeout=15)
+    resp.raise_for_status()
+    models = resp.json().get("data", [])
+    return {"updated_at": int(time.time()), "models": build_latest_models(models)}
+
+
+def get_latest_models_resolved_cached(force=False):
+    with _latest_models_cache_lock:
+        now = time.time()
+        if (
+            not force
+            and _latest_models_cache["data"] is not None
+            and now - _latest_models_cache["ts"] < LATEST_MODELS_CACHE_TTL
+        ):
+            return _latest_models_cache["data"]
+        data = fetch_latest_models_resolved()
+        _latest_models_cache["data"] = data
+        _latest_models_cache["ts"] = now
+        return data
+
+
 def fetch_app_usage(api_key, start=None, end=None, granularity="hour"):
     """调用 OpenRouter 官方 Analytics API，按 App 维度查询消费分布。
     文档: POST /api/v1/analytics/query, dimensions=["app"]，普通推理 Key 即可调用，无需 Management Key。

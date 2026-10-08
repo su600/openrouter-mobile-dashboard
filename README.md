@@ -157,7 +157,7 @@ sudo systemctl enable --now or-dashboard.service
 
 `android-widget/` 同时包含安卓看板 App 和两个原生桌面小组件：App 使用 WebView 打开现有手机网页看板，并以轻量淡入显示；Chart.js 4.4.4 改为服务器本地资源，避免首屏等待外部 CDN。账户组件目标为 4×2，显示余额、消费和按近 30 天用量降序排列的 Codex / Claude / Pi；App 用量名称加粗、金额 18sp 加粗，并与上方消费区留出额外间距。新品组件为 4×1，使用基础 RemoteViews 文本/图片视图最多两行展示多厂商模型、发布日期及近 7 天新品标识；不使用动态子视图、跑马灯方法或自动轮播绑定。用户已在 Samsung One UI 8.5 确认 v1.0.29 可正常添加；v1.0.30 更新了账户组件中 Pi App 的图标。看板 URL 和访问口令可在 App 设置中维护；看板口令与组件只读凭证使用 Android Keystore 加密保存；WebView 通过受控 JS 桥接读取内存中的口令，不写入 localStorage，后台恢复时保留页面状态。OpenRouter API Key 不会进入 APK 或手机。
 
-**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.30](android-widget/releases/openrouter-account-widget-v1.0.30.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`20d5fdafffb5c770cd9b98cbb760c319be37dee6c0610441b5fa3db3fff62688`。
+**预编译 APK**：[下载 OpenRouter 账户看板 v1.0.34](android-widget/releases/openrouter-account-widget-v1.0.34.apk)（Android 8+，debug 签名，可手动安装；非 Google Play 发布包）。SHA-256：`ea92049d9ccd9b3006e469677dcf3d584c679538395309e972758614c70f44a5`。
 
 从源码构建：
 
@@ -244,6 +244,7 @@ openrouter-dashboard/
    - `GET /api/widget/news` ：返回新品轮播所需的厂商、模型名、发布日期和时间戳，仅使用只读凭证
    - `GET /api/latest_models?token=xxx` ：拉取 OpenRouter 全量模型列表，按厂商分组取每家最新发布的模型，供首页新闻滚动条展示（12 小时缓存，与账户无关）
    - `GET /api/model_prices?token=xxx[&refresh=1]` ：抓取 OpenRouter 模型价格，返回 GPT / Claude 两大家族「最新一代」旗舰模型的输入/输出价格（单位 USD / 百万 tokens），供底部对比卡片展示（1 小时缓存；带 `refresh=1` 时跳过缓存强制重取）
+   - `GET /api/latest_resolved?token=xxx[&refresh=1]` ：解析 Claude Opus/Sonnet/Haiku 与 GPT Astra/Sol/Luna 六个 `~…-latest` 别名当前实际指向的模型（读取模型列表中的 `alias_target`，1 小时缓存），供旗舰价格卡片的 Latest Model 弹窗展示
    - `GET /healthz` ：健康检查，无需鉴权，返回 `{"ok": true, "time": ...}`，供 systemd / 监控探活
    - App 消费分布数据通过 `POST https://openrouter.ai/api/v1/analytics/query`（`dimensions: ["app"]`）获取，普通推理 API Key 即可调用，无需 Management Key
 2. 服务端持有真实的 OpenRouter API Key，通过环境隔离保证密钥不会暴露给浏览器/前端

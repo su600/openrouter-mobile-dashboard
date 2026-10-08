@@ -315,6 +315,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(e)}, 500)
             return
 
+        if parsed.path == "/api/latest_resolved":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            try:
+                force = qs.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+                self._send_json(api.get_latest_models_resolved_cached(force=force))
+            except Exception as e:
+                logger.warning("解析 latest 模型失败: %s", e)
+                self._send_json({"error": str(e)}, 500)
+            return
+
         if parsed.path == "/api/app_usage_today":
             if not self._authorized(qs):
                 return self._unauthorized()

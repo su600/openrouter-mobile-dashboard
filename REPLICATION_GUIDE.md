@@ -207,6 +207,7 @@ chmod 600 config.json
 | `GET /api/app_usage_month?token=…[&account=…]` | 是 | 返回本月按 App 汇总的数据 |
 | `GET /api/latest_models?token=…` | 是 | 返回按厂商归类的最新模型新闻 |
 | `GET /api/model_prices?token=…[&refresh=1]` | 是 | 返回 GPT/Claude 新一代模型价格、上下文及 Intelligence Index；`refresh=1` 强制更新 |
+| `GET /api/latest_resolved?token=…[&refresh=1]` | 是 | 返回 Claude Opus/Sonnet/Haiku、GPT Astra/Sol/Luna 的 latest 别名实际指向的模型 |
 
 API 错误使用 JSON `{ "error": "…" }` 和适当 HTTP 状态码，例如未授权 `401`、参数或业务错误 `400`、重复账户 `409`、不存在 `404`。HTTP 服务禁用了默认访问日志；应用日志仅记录失败原因，不应自行记录 API Key、口令或请求正文。
 

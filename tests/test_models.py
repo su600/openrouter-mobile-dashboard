@@ -85,5 +85,37 @@ class TestBuildFlagshipFamilies(unittest.TestCase):
         self.assertEqual(api.build_flagship_families([]), [])
 
 
+class TestBuildLatestModels(unittest.TestCase):
+    def alias(self, alias_id, slug, name):
+        return {"id": alias_id, "name": name, "alias_target": {"slug": slug, "name": name}}
+
+    def test_resolves_all_six_tiers(self):
+        models = [
+            self.alias("~anthropic/claude-opus-latest", "anthropic/claude-opus-5.5", "Anthropic: Claude Opus 5.5"),
+            self.alias("~anthropic/claude-sonnet-latest", "anthropic/claude-sonnet-5.5", "Anthropic: Claude Sonnet Latest"),
+            self.alias("~anthropic/claude-haiku-latest", "anthropic/claude-haiku-5.5", "Anthropic: Claude Haiku Latest"),
+            self.alias("~openai/gpt-astra-latest", "openai/gpt-6-astra", "OpenAI: GPT-6 Astra"),
+            self.alias("~openai/gpt-sol-latest", "openai/gpt-6.1-sol", "OpenAI: GPT Sol Latest"),
+            self.alias("~openai/gpt-luna-latest", "openai/gpt-6-luna", "OpenAI: GPT Luna Latest"),
+        ]
+        rows = api.build_latest_models(models)
+        self.assertEqual([r["tier"] for r in rows], ["Opus", "Sonnet", "Haiku", "Astra", "Sol", "Luna"])
+        self.assertTrue(all(r["found"] for r in rows))
+        self.assertEqual(rows[0]["resolved_id"], "anthropic/claude-opus-5.5")
+        self.assertEqual(rows[0]["resolved_name"], "Claude Opus 5.5")
+        self.assertEqual(rows[3]["resolved_id"], "openai/gpt-6-astra")
+        self.assertEqual(rows[3]["resolved_name"], "GPT-6 Astra")
+
+    def test_missing_alias_is_reported_not_found(self):
+        rows = api.build_latest_models([])
+        self.assertEqual(len(rows), 6)
+        self.assertTrue(all(not r["found"] and r["resolved_id"] is None for r in rows))
+
+    def test_non_dict_entries_are_ignored(self):
+        rows = api.build_latest_models([None, "x", self.alias("~openai/gpt-luna-latest", "openai/gpt-6-luna", "OpenAI: GPT Luna Latest")])
+        luna = [r for r in rows if r["tier"] == "Luna"][0]
+        self.assertTrue(luna["found"])
+
+
 if __name__ == "__main__":
     unittest.main()
