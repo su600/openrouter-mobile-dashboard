@@ -24,6 +24,7 @@ import accounts as accounts_store
 import runtime_keys
 import key_injection
 import openrouter_api as api
+import note_store
 from logging_setup import setup_logging, get_logger
 import widget_auth
 
@@ -110,14 +111,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._write_body(body, content_type, cache_control=cache_control)
 
-    def _read_json_body(self):
+    def _read_json_body(self, max_length=65536):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
         if length <= 0:
             return {}
-        if length > 65536:
+        if length > max_length:
             self.close_connection = True
             return {}
         raw = self.rfile.read(length)
@@ -273,6 +274,16 @@ class Handler(BaseHTTPRequestHandler):
                 {"accounts": public_accounts, "active": data.get("active")},
                 cache_control="no-store",
             )
+            return
+
+        if parsed.path == "/api/note":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            try:
+                self._send_json({"note": note_store.load_note()}, cache_control="no-store")
+            except OSError as e:
+                logger.warning("读取随手记失败: %s", e)
+                self._send_json({"error": "无法读取随手记"}, 500, cache_control="no-store")
             return
 
         if parsed.path == "/api/summary":
@@ -479,6 +490,23 @@ class Handler(BaseHTTPRequestHandler):
 
         if not self._authorized(qs):
             return self._unauthorized()
+
+        if parsed.path == "/api/note":
+            body = self._read_json_body(max_length=500000)
+            if not isinstance(body, dict) or not isinstance(body.get("note"), str):
+                self._send_json({"error": "随手记内容格式无效"}, 400, cache_control="no-store")
+                return
+            try:
+                saved_note = note_store.save_note(body["note"])
+            except ValueError as e:
+                self._send_json({"error": str(e)}, 400, cache_control="no-store")
+                return
+            except OSError as e:
+                logger.warning("保存随手记失败: %s", e)
+                self._send_json({"error": "无法保存随手记"}, 500, cache_control="no-store")
+                return
+            self._send_json({"ok": True, "note": saved_note}, cache_control="no-store")
+            return
 
         if parsed.path == "/api/accounts":
             # 新增账户

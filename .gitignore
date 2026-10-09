@@ -4,6 +4,7 @@ accounts.json
 runtime_keys.json
 widget_readonly_token
 daily_baseline.json
+dashboard_note.txt
 
 # Python
 __pycache__/

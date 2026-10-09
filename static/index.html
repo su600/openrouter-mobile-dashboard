@@ -1075,6 +1075,30 @@
   .price-io .in { color: var(--accent); }
   .price-io .out { color: var(--warn); }
   .price-col-empty { padding: 14px 0; font-size: 12px; color: var(--text-muted); }
+  .note-editor {
+    display: block;
+    width: 100%;
+    height: 76px;
+    min-height: 60px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 12px 14px;
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    background: var(--input-bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .note-editor:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .note-save-status { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
 
   /* 窄屏：价格卡片保持两列，行内改为「名称在上 / 价格在下」以留出可读宽度 */
   @media (max-width: 767px) {
@@ -1233,6 +1257,14 @@
       <div class="price-compare" id="price-compare">
         <div class="price-col-empty">加载中...</div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <label for="personal-note">随手记</label>
+        <span class="note-save-status" id="note-save-status" aria-live="polite">正在同步…</span>
+      </div>
+      <textarea class="note-editor" id="personal-note" placeholder="在这里记点什么…内容会自动保存在服务器，所有登录设备均可查看。"></textarea>
     </div>
 
   </div>
@@ -2559,12 +2591,66 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+let personalNoteSaveTimer = null;
+let personalNoteSaveSequence = 0;
+
+async function loadPersonalNote() {
+  const editor = document.getElementById("personal-note");
+  const status = document.getElementById("note-save-status");
+  const token = getToken();
+  if (!editor || !status || !token) return;
+
+  status.textContent = "正在同步…";
+  try {
+    const response = await fetch(`/api/note?token=${encodeURIComponent(token)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("读取失败");
+    const data = await response.json();
+    if (document.activeElement !== editor) editor.value = data.note || "";
+    status.textContent = "已同步到服务器";
+  } catch (error) {
+    status.textContent = "同步失败，检查网络后重试";
+  }
+}
+
+async function savePersonalNote() {
+  const editor = document.getElementById("personal-note");
+  const status = document.getElementById("note-save-status");
+  const token = getToken();
+  if (!editor || !status || !token) return;
+
+  const sequence = ++personalNoteSaveSequence;
+  status.textContent = "正在保存…";
+  try {
+    const response = await fetch(`/api/note?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: editor.value }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "保存失败");
+    if (sequence === personalNoteSaveSequence) status.textContent = "已保存到服务器";
+  } catch (error) {
+    if (sequence === personalNoteSaveSequence) status.textContent = error.message || "保存失败，请检查网络";
+  }
+}
+
+function initPersonalNote() {
+  const editor = document.getElementById("personal-note");
+  if (!editor) return;
+  editor.addEventListener("input", () => {
+    clearTimeout(personalNoteSaveTimer);
+    personalNoteSaveTimer = setTimeout(savePersonalNote, 500);
+  });
+}
+
 async function init() {
   const token = getToken();
   if (!token) {
     showLogin();
   } else {
     showDashboard();
+    loadPersonalNote();
+    initPersonalNote();
     // Do not hold the main dashboard behind account-list network latency.
     loadAccounts();
     loadData();

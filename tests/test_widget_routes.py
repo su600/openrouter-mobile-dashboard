@@ -26,6 +26,7 @@ class TestWidgetRoutes(unittest.TestCase):
         }
         self.patches = [
             patch.object(server, "DASHBOARD_TOKEN", "unit-test-admin-token"),
+            patch.object(server.note_store, "NOTE_PATH", os.path.join(self.temp_dir.name, "dashboard-note.txt")),
             patch.object(server.widget_auth, "WIDGET_TOKEN_PATH", self.token_path),
             patch.dict(os.environ, {"OR_WIDGET_TOKEN": ""}),
             patch.object(server.accounts_store, "load_accounts", return_value={
@@ -164,6 +165,28 @@ class TestWidgetRoutes(unittest.TestCase):
         self.assertNotIn("daily_series", response)
         self.assertNotIn("model_ranking", response)
         self.assertNotIn("sk-or-v1", json.dumps(response))
+
+    def test_dashboard_note_requires_auth_and_syncs_between_requests(self):
+        status, _ = self.request("/api/note?token=wrong")
+        self.assertEqual(status, 401)
+
+        status, response = self.request("/api/note?token=unit-test-admin-token")
+        self.assertEqual(status, 200)
+        self.assertEqual(response["note"], "")
+
+        request = urllib.request.Request(
+            self.base + "/api/note?token=unit-test-admin-token",
+            data=json.dumps({"note": "跨设备共享的备忘\n第二行"}, ensure_ascii=False).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.loads(response.read().decode("utf-8"))["note"], "跨设备共享的备忘\n第二行")
+
+        status, response = self.request("/api/note?token=unit-test-admin-token")
+        self.assertEqual(status, 200)
+        self.assertEqual(response["note"], "跨设备共享的备忘\n第二行")
 
     def test_manual_dashboard_refresh_bypasses_summary_cache(self):
         fresh = {
