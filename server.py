@@ -289,7 +289,11 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/copilot/accounts":
             if not self._authorized(qs):
                 return self._unauthorized()
-            self._send_json({"accounts": github_copilot.list_accounts()}, cache_control="no-store")
+            public_accounts = [
+                github_copilot.public_account(account)
+                for account in github_copilot.list_accounts()
+            ]
+            self._send_json({"accounts": public_accounts}, cache_control="no-store")
             return
 
         if parsed.path == "/api/copilot/usage":

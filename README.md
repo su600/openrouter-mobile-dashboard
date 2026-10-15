@@ -34,6 +34,7 @@
 - 📱 **PWA 支持**：可直接“添加到主屏幕”，像原生 App 一样使用
 - 🔒 **访问口令保护**：前端仅使用访问口令（Token），真实的 OpenRouter API Key 只保存在服务端，不会暴露
 - 🔑 **多账户 / 多 API Key 管理**：可在看板内添加多个 OpenRouter 账户查询 Key，顶部下拉一键切换，分别查看余额、消费与模型排行；支持重命名、删除和人工维护访问状态。账户查询 Key 与模型调用 Key 分开管理，避免混淆。
+- 🐙 **GitHub Copilot 订阅看板**：新增独立的 Copilot 卡片布局，通过 GitHub OAuth 连接账户，展示可用的订阅计划、高级请求/聊天/代码补全配额、剩余量与重置日期；原有 OpenRouter 卡片与账户数据保持独立。OAuth 凭证仅保存在服务端权限为 `600` 的 `github_copilot_accounts.json` 中。
 - 🔐 **推理 Key 管理与一键注入 / 快速切换**：可给每个看板账户单独保存、覆盖或删除 OpenRouter 推理 Key；列表只显示掩码，Key 保存在服务端 `runtime_keys.json`（权限 `600`，Git 忽略）。点击「注入已保存 Key」并确认，即可快速更新或切换 Pi Agent、Gateway 全局上游，或同时更新两者；Pi Agent 会重启，Gateway 会重建并做健康检查。Gateway 使用全局上游 Key，因此切换会影响所有 Gateway 客户端。注入前可检查当前 Key 与账户的匹配关系；检查只返回账户名、Key 类型和掩码，不发起模型请求。删除只移除本地副本，不会撤销 OpenRouter 上的 Key。
 - ⚡ **性能优化**：后端**全局复用 `requests.Session`**（连接池，省去重复 TCP/TLS 握手）+ **并发拉取**上游 6 个接口（总耗时由最慢一个决定）；对 HTML/JSON/SVG 等文本响应自动 **gzip**（首页 54KB → 13KB，约 -76%）；静态资源设置合理缓存策略（图片等 `max-age=86400`，HTML/JS/JSON `no-cache`）+ `Vary: Accept-Encoding`
 - 🩺 **健康检查与日志**：内置 `/healthz`（无需鉴权，供 systemd/监控探活）；统一日志输出到 stderr，上游失败等告警可通过 `journalctl -u or-dashboard -f` 查看
@@ -88,6 +89,15 @@ cp config.json.example config.json
 | `dashboard_token` | 手机端访问看板时输入的口令，请自行设置一个不易猜测的字符串；也可通过环境变量 `OR_DASHBOARD_TOKEN` 设置。未配置时仅回退到开发用默认值 `changeme`，公网部署前务必设置强口令 |
 | `port` | 服务监听端口；示例配置为 `8080`，未配置时默认 `8899` |
 | `usd_to_cny_rate` | 默认 USD → CNY 汇率；可在配置文件中修改（建议把手续费也计入这个数值里）。看板右上角币种按钮旁的 ✎ 还可设置当前设备专属汇率，优先于此配置；清空编辑框并确认可恢复服务器配置。普通浏览器将自定义值保存在本机 `localStorage`；Android App 同时同步至本机账户小组件，不会写回服务器配置 |
+| `github_oauth_client_id` | 可选，GitHub OAuth App 的 Client ID；也可设置环境变量 `GH_COPILOT_OAUTH_CLIENT_ID` |
+| `github_oauth_client_secret` | 可选，GitHub OAuth App 的 Client Secret；也可设置环境变量 `GH_COPILOT_OAUTH_CLIENT_SECRET`。生产环境建议使用环境变量 |
+| `github_oauth_redirect_uri` | 可选，OAuth App 中登记的回调地址，格式如 `https://dashboard.example.com/api/copilot/oauth/callback`；也可设置环境变量 `GH_COPILOT_OAUTH_REDIRECT_URI` |
+
+### GitHub Copilot OAuth 配置
+
+在 GitHub 注册 OAuth App，将 Authorization callback URL 设置为看板的 HTTPS 回调地址，并配置上述 Client ID、Client Secret 和完全匹配的 Redirect URI。重启看板后，登录看板并在独立的「GitHub Copilot 订阅与用量」卡片中点击「连接 GitHub」授权。OAuth 账户可在该卡片中切换或断开；断开只删除看板本地凭证，不会更改 GitHub 订阅。
+
+Copilot 使用数据通过 GitHub 的 `copilot_internal/user` 接口获取。该接口并非公开稳定的 REST API；GitHub 返回哪些计划/配额字段取决于账户和订阅，界面只显示实际可获得的信息，字段缺失时显示“—”。接口或返回格式未来变化时，用量卡片可能暂时无法显示；这不会影响 OpenRouter 看板。请仅通过 HTTPS 部署并妥善保护 OAuth Client Secret。
 
 > 首次启动时会把 `config.json` 中的 Key 导入到 `accounts.json`（运行时账户存储，已加入 `.gitignore`）。之后在看板「⚙️ 管理」中添加/删除/重命名账户都会写入该文件，不会回写 `config.json`。
 

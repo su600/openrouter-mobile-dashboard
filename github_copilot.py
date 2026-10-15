@@ -217,7 +217,8 @@ def normalize_usage(payload):
             "unlimited": bool(snapshot.get("unlimited", False)),
         })
 
-    quotas.sort(key=lambda item: (item["key"] not in QUOTA_LABELS, item["label"]))
+    quota_order = {key: index for index, key in enumerate(QUOTA_LABELS)}
+    quotas.sort(key=lambda item: (quota_order.get(item["key"], len(quota_order)), item["label"]))
     plan = (
         payload.get("copilot_plan")
         or payload.get("plan_type")
