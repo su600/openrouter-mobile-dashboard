@@ -195,11 +195,22 @@ def normalize_usage(payload):
         snapshots = payload.get("limited_user_quotas")
     if not isinstance(snapshots, dict):
         snapshots = {}
+    monthly_quotas = payload.get("monthly_quotas")
+    if not isinstance(monthly_quotas, dict):
+        monthly_quotas = {}
+    reset_date = (
+        payload.get("quota_reset_date_utc")
+        or payload.get("quota_reset_date")
+        or payload.get("limited_user_reset_date")
+    )
 
     quotas = []
     for key, snapshot in snapshots.items():
         if not isinstance(snapshot, dict):
-            continue
+            snapshot = {
+                "remaining": snapshot,
+                "entitlement": monthly_quotas.get(key),
+            }
         entitlement = _number(snapshot.get("entitlement"))
         remaining = _number(snapshot.get("remaining"))
         percent_remaining = _number(snapshot.get("percent_remaining"))
@@ -213,7 +224,7 @@ def normalize_usage(payload):
             "entitlement": entitlement,
             "remaining": remaining,
             "percent_remaining": percent_remaining,
-            "reset_date": snapshot.get("reset_date"),
+            "reset_date": snapshot.get("reset_date") or reset_date,
             "unlimited": bool(snapshot.get("unlimited", False)),
         })
 

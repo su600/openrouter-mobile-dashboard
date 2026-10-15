@@ -73,6 +73,29 @@ class TestGitHubCopilot(unittest.TestCase):
         self.assertEqual(premium["reset_date"], "2026-11-01T00:00:00Z")
         self.assertIsNone(usage["quotas"][1]["entitlement"])
 
+    def test_normalizes_limited_quota_counts_and_payload_reset_date(self):
+        usage = github_copilot.normalize_usage({
+            "limited_user_quotas": {"chat": 35, "completions": 10},
+            "monthly_quotas": {"chat": 100, "completions": 50},
+            "quota_reset_date": "2026-12-01T00:00:00Z",
+        })
+        quotas = {quota["key"]: quota for quota in usage["quotas"]}
+        self.assertEqual(quotas["chat"]["remaining"], 35)
+        self.assertEqual(quotas["chat"]["entitlement"], 100)
+        self.assertEqual(quotas["chat"]["percent_remaining"], 35)
+        self.assertEqual(quotas["chat"]["reset_date"], "2026-12-01T00:00:00Z")
+        self.assertEqual(quotas["completions"]["remaining"], 10)
+        self.assertEqual(quotas["completions"]["entitlement"], 50)
+
+    def test_snapshot_reset_date_takes_precedence_over_payload_reset_date(self):
+        usage = github_copilot.normalize_usage({
+            "quota_snapshots": {
+                "chat": {"remaining": 20, "reset_date": "2026-11-01T00:00:00Z"},
+            },
+            "quota_reset_date_utc": "2026-12-01T00:00:00Z",
+        })
+        self.assertEqual(usage["quotas"][0]["reset_date"], "2026-11-01T00:00:00Z")
+
     def test_usage_uses_stored_account_token(self):
         with patch.object(github_copilot, "_github_get", side_effect=[
             {"id": 456, "login": "usage-user"},

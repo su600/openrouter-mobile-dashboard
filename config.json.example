@@ -5,9 +5,9 @@
   ],
   "openrouter_api_key": "sk-or-v1-兼容旧版的单Key配置（可选，留空则忽略）",
   "dashboard_token": "自定义一个访问口令，用于手机端登录看板",
-  "github_oauth_client_id": "GitHub OAuth App Client ID",
-  "github_oauth_client_secret": "GitHub OAuth App Client Secret",
-  "github_oauth_redirect_uri": "https://dashboard.example.com/api/copilot/oauth/callback",
+  "github_oauth_client_id": "",
+  "github_oauth_client_secret": "",
+  "github_oauth_redirect_uri": "",
   "port": 8080,
   "usd_to_cny_rate": 7.1
 }

@@ -2371,17 +2371,21 @@ async function loadCopilotUsage(force = false) {
     setCopilotStatus("请先连接 GitHub Copilot 账户。");
     return;
   }
+  const requestedAccountId = currentCopilotAccountId;
   const button = document.getElementById("copilot-refresh-btn");
   if (force && button) { button.disabled = true; button.textContent = "刷新中…"; }
   setCopilotStatus("正在获取 GitHub Copilot 订阅用量…");
   try {
-    const url = `/api/copilot/usage?token=${encodeURIComponent(getToken())}&account=${encodeURIComponent(currentCopilotAccountId)}`;
+    const url = `/api/copilot/usage?token=${encodeURIComponent(getToken())}&account=${encodeURIComponent(requestedAccountId)}`;
     const response = await fetch(url, { cache: "no-store" });
     const data = await response.json();
+    if (requestedAccountId !== currentCopilotAccountId) return;
     if (!response.ok || data.error) throw new Error(data.error || "获取 Copilot 用量失败");
     renderCopilotUsage(data);
   } catch (error) {
-    setCopilotStatus(error.message || "获取 Copilot 用量失败。", true);
+    if (requestedAccountId === currentCopilotAccountId) {
+      setCopilotStatus(error.message || "获取 Copilot 用量失败。", true);
+    }
   } finally {
     if (force && button) { button.disabled = false; button.textContent = "刷新"; }
   }
@@ -2786,6 +2790,7 @@ document.addEventListener("visibilitychange", () => {
     stopAutoRefresh();
   } else {
     loadData();
+    loadCopilotAccounts();
     startAutoRefresh();
   }
 });
@@ -2857,7 +2862,7 @@ async function init() {
     loadData();
     loadNewsTicker();
     loadModelPrices();
-    await loadCopilotAccounts();
+    loadCopilotAccounts();
     const oauthMessages = {
       connected: "GitHub Copilot 已连接。",
       denied: "GitHub OAuth 授权已取消。",
