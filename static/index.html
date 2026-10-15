@@ -1259,6 +1259,18 @@
       </div>
     </div>
 
+    <div class="card" id="copilot-card">
+      <div class="card-title">
+        <span>GitHub Copilot 用量</span>
+        <div class="header-actions">
+          <button class="refresh-btn" onclick="copilotLogin()">登录 GitHub</button>
+          <button class="refresh-btn" onclick="loadCopilot()">刷新</button>
+        </div>
+      </div>
+      <div id="copilot-login" style="display:none;font-size:13px;margin-bottom:8px;"></div>
+      <div id="copilot-list"><div class="price-col-empty">加载中...</div></div>
+    </div>
+
     <div class="card">
       <div class="card-title">
         <label for="personal-note">随手记</label>
@@ -2643,6 +2655,85 @@ function initPersonalNote() {
   });
 }
 
+function copilotUrl(path, extra) {
+  return `${path}?token=${encodeURIComponent(getToken())}${extra || ""}`;
+}
+function copilotEsc(v) {
+  const d = document.createElement("div");
+  d.textContent = v == null ? "" : String(v);
+  return d.innerHTML;
+}
+async function loadCopilot() {
+  const list = document.getElementById("copilot-list");
+  if (!list || !getToken()) return;
+  try {
+    const res = await fetch(copilotUrl("/api/copilot/accounts"), { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "加载失败");
+    if (!data.accounts.length) {
+      list.innerHTML = `<div class="price-col-empty">${data.configured ? "尚未登录，点击“登录 GitHub”" : "服务器未配置 github_client_id"}</div>`;
+      return;
+    }
+    list.innerHTML = data.accounts.map(a => `<div class="copilot-acct" id="copilot-${copilotEsc(a.id)}"><b>${copilotEsc(a.login)}</b> <button class="refresh-btn" onclick="copilotRemove('${copilotEsc(a.id)}')">移除</button><div class="copilot-usage">加载中...</div></div>`).join("");
+    data.accounts.forEach(loadCopilotUsage);
+  } catch (e) {
+    list.innerHTML = `<div class="price-col-empty">${copilotEsc(e.message)}</div>`;
+  }
+}
+async function loadCopilotUsage(a) {
+  const box = document.querySelector(`#copilot-${a.id} .copilot-usage`);
+  if (!box) return;
+  try {
+    const res = await fetch(copilotUrl("/api/copilot/usage", `&id=${encodeURIComponent(a.id)}`), { cache: "no-store" });
+    const u = await res.json();
+    if (!res.ok) throw new Error(u.error || "获取失败");
+    const rows = u.quotas.map(q => {
+      const text = q.unlimited ? "无限" : (q.entitlement != null ? `${q.used} / ${q.entitlement}（剩余 ${q.remaining}）` : "-");
+      return `<div>${copilotEsc(q.name)}: ${copilotEsc(text)}</div>`;
+    }).join("");
+    box.innerHTML = `<div>套餐: ${copilotEsc(u.plan || "-")} · 重置: ${copilotEsc(u.reset_date || "-")}</div>${rows}`;
+  } catch (e) {
+    box.textContent = e.message;
+  }
+}
+async function copilotRemove(id) {
+  if (!confirm("移除该 GitHub 账户？")) return;
+  await fetch(copilotUrl("/api/copilot/accounts", `&id=${encodeURIComponent(id)}`), { method: "DELETE" });
+  loadCopilot();
+}
+async function copilotLogin() {
+  const box = document.getElementById("copilot-login");
+  box.style.display = "block";
+  box.textContent = "正在申请授权码…";
+  try {
+    const res = await fetch(copilotUrl("/api/copilot/device/start"), { method: "POST" });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "申请失败");
+    box.innerHTML = `请打开 <a href="${copilotEsc(d.verification_uri)}" target="_blank" rel="noopener">${copilotEsc(d.verification_uri)}</a> 并输入授权码：<b>${copilotEsc(d.user_code)}</b>`;
+    let interval = (d.interval || 5) * 1000;
+    const deadline = Date.now() + (d.expires_in || 900) * 1000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, interval));
+      const pr = await fetch(copilotUrl("/api/copilot/device/poll"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_code: d.device_code }),
+      });
+      const p = await pr.json();
+      if (!pr.ok) throw new Error(p.error || "授权失败");
+      if (p.status === "slow_down") interval += 5000;
+      if (p.status === "ok") {
+        box.style.display = "none";
+        loadCopilot();
+        return;
+      }
+    }
+    throw new Error("授权码已过期，请重试");
+  } catch (e) {
+    box.textContent = e.message;
+  }
+}
+
 async function init() {
   const token = getToken();
   if (!token) {
@@ -2651,6 +2742,7 @@ async function init() {
     showDashboard();
     loadPersonalNote();
     initPersonalNote();
+    loadCopilot();
     // Do not hold the main dashboard behind account-list network latency.
     loadAccounts();
     loadData();

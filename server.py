@@ -25,6 +25,7 @@ import runtime_keys
 import key_injection
 import openrouter_api as api
 import note_store
+import github_copilot
 from logging_setup import setup_logging, get_logger
 import widget_auth
 
@@ -276,6 +277,30 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/copilot/accounts":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            self._send_json(
+                {"accounts": github_copilot.list_accounts(), "configured": bool(github_copilot.config.GITHUB_CLIENT_ID)},
+                cache_control="no-store",
+            )
+            return
+
+        if parsed.path == "/api/copilot/usage":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            try:
+                usage = github_copilot.fetch_usage(qs.get("id", [""])[0])
+            except github_copilot.CopilotError as e:
+                self._send_json({"error": str(e)}, 400, cache_control="no-store")
+                return
+            except Exception as e:
+                logger.warning("获取 Copilot 用量失败: %s", e)
+                self._send_json({"error": "获取 Copilot 用量失败"}, 502, cache_control="no-store")
+                return
+            self._send_json(usage, cache_control="no-store")
+            return
+
         if parsed.path == "/api/note":
             if not self._authorized(qs):
                 return self._unauthorized()
@@ -491,6 +516,24 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized(qs):
             return self._unauthorized()
 
+        if parsed.path in ("/api/copilot/device/start", "/api/copilot/device/poll"):
+            try:
+                if parsed.path.endswith("/start"):
+                    self._send_json(github_copilot.start_device_flow(), cache_control="no-store")
+                else:
+                    body = self._read_json_body()
+                    device_code = body.get("device_code") if isinstance(body, dict) else None
+                    if not isinstance(device_code, str) or not device_code:
+                        self._send_json({"error": "缺少 device_code"}, 400, cache_control="no-store")
+                        return
+                    self._send_json(github_copilot.poll_device_flow(device_code), cache_control="no-store")
+            except github_copilot.CopilotError as e:
+                self._send_json({"error": str(e)}, 400, cache_control="no-store")
+            except Exception as e:
+                logger.warning("GitHub OAuth 失败: %s", e)
+                self._send_json({"error": "GitHub 授权请求失败"}, 502, cache_control="no-store")
+            return
+
         if parsed.path == "/api/note":
             body = self._read_json_body(max_length=500000)
             if not isinstance(body, dict) or not isinstance(body.get("note"), str):
@@ -604,6 +647,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if not self._authorized(qs):
             return self._unauthorized()
+
+        if parsed.path == "/api/copilot/accounts":
+            if not github_copilot.delete_account(qs.get("id", [""])[0]):
+                self._send_json({"error": "账户不存在"}, 404, cache_control="no-store")
+                return
+            self._send_json({"ok": True, "accounts": github_copilot.list_accounts()}, cache_control="no-store")
+            return
 
         if parsed.path == "/api/accounts":
             acct_id = qs.get("id", [""])[0]

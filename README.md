@@ -334,3 +334,7 @@ openrouter-dashboard/
 ## 📄 License
 
 MIT
+
+## GitHub Copilot 账户管理
+
+在 GitHub 创建 OAuth App 并启用 Device Flow，将 Client ID 写入 `config.json` 的 `github_client_id`（或环境变量 `OR_GITHUB_CLIENT_ID`）。看板中点击“登录 GitHub”，按提示在 github.com/login/device 输入授权码即可；服务端保存 OAuth token（`copilot_accounts.json`，权限 0600），并展示订阅套餐、配额用量与重置日期。

@@ -30,3 +30,10 @@ DASHBOARD_TOKEN = (
 RUNTIME_KEY_MANAGEMENT_ENABLED = os.environ.get("OR_ENABLE_RUNTIME_KEY_MANAGEMENT") == "1"
 PORT = int(CONFIG.get("port", 8899))
 USD_TO_CNY_RATE = CONFIG.get("usd_to_cny_rate", 7.1)
+COPILOT_ACCOUNTS_PATH = os.path.join(BASE_DIR, "copilot_accounts.json")
+# GitHub OAuth App client id（需在 GitHub OAuth App 设置中启用 Device Flow）
+GITHUB_CLIENT_ID = (
+    CONFIG.get("github_client_id")
+    or os.environ.get("OR_GITHUB_CLIENT_ID")
+    or ""
+)

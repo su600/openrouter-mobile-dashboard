@@ -5,6 +5,7 @@ runtime_keys.json
 widget_readonly_token
 daily_baseline.json
 dashboard_note.txt
+copilot_accounts.json
 
 # Python
 __pycache__/
