@@ -25,6 +25,7 @@ import runtime_keys
 import key_injection
 import openrouter_api as api
 import note_store
+import github_copilot
 from logging_setup import setup_logging, get_logger
 import widget_auth
 
@@ -100,6 +101,12 @@ class Handler(BaseHTTPRequestHandler):
             code=code,
             cache_control=cache_control,
         )
+
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _send_file(self, path, content_type, cache_control=None):
         try:
@@ -251,6 +258,58 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "无法读取当前推理 Key 配置"}, 500, cache_control="no-store")
                 return
             self._send_json(checked, cache_control="no-store")
+            return
+
+        if parsed.path == "/api/copilot/oauth/start":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            try:
+                self._redirect(github_copilot.begin_oauth())
+            except RuntimeError:
+                self._send_json({"error": "GitHub OAuth 尚未配置"}, 503, cache_control="no-store")
+            return
+
+        if parsed.path == "/api/copilot/oauth/callback":
+            state = qs.get("state", [""])[0]
+            if not github_copilot.consume_oauth_state(state):
+                self._redirect("/?copilot_oauth=invalid")
+                return
+            if qs.get("error") or not qs.get("code", [""])[0]:
+                self._redirect("/?copilot_oauth=denied")
+                return
+            try:
+                access_token = github_copilot.exchange_oauth_code(qs["code"][0])
+                github_copilot.add_oauth_account(access_token)
+                self._redirect("/?copilot_oauth=connected")
+            except Exception as exc:
+                logger.warning("GitHub Copilot OAuth callback failed: %s", exc)
+                self._redirect("/?copilot_oauth=error")
+            return
+
+        if parsed.path == "/api/copilot/accounts":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            public_accounts = [
+                github_copilot.public_account(account)
+                for account in github_copilot.list_accounts()
+            ]
+            self._send_json({"accounts": public_accounts}, cache_control="no-store")
+            return
+
+        if parsed.path == "/api/copilot/usage":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            account_id = qs.get("account", [""])[0]
+            try:
+                usage = github_copilot.get_usage(account_id)
+            except KeyError:
+                self._send_json({"error": "GitHub Copilot 账户不存在"}, 404, cache_control="no-store")
+                return
+            except Exception as exc:
+                logger.warning("GitHub Copilot usage fetch failed account_id=%s: %s", account_id, exc)
+                self._send_json({"error": "暂时无法获取 GitHub Copilot 用量"}, 502, cache_control="no-store")
+                return
+            self._send_json(usage, cache_control="no-store")
             return
 
         if parsed.path == "/api/accounts":
@@ -585,6 +644,22 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         parsed = urlparse(self.path)
         qs = parse_qs(parsed.query)
+
+        if parsed.path == "/api/copilot/accounts":
+            if not self._authorized(qs):
+                return self._unauthorized()
+            account_id = qs.get("id", [""])[0]
+            if not account_id:
+                self._send_json({"error": "缺少账户 ID"}, 400, cache_control="no-store")
+                return
+            if not github_copilot.remove_account(account_id):
+                self._send_json({"error": "GitHub Copilot 账户不存在"}, 404, cache_control="no-store")
+                return
+            self._send_json(
+                {"ok": True, "accounts": github_copilot.list_accounts()},
+                cache_control="no-store",
+            )
+            return
 
         if parsed.path == "/api/accounts/inference-key":
             if not self._admin_authorized():

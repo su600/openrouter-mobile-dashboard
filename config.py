@@ -13,6 +13,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ACCOUNTS_PATH = os.path.join(BASE_DIR, "accounts.json")
 RUNTIME_KEYS_PATH = os.path.join(BASE_DIR, "runtime_keys.json")
 WIDGET_TOKEN_PATH = os.path.join(BASE_DIR, "widget_readonly_token")
+GITHUB_COPILOT_ACCOUNTS_PATH = os.path.join(BASE_DIR, "github_copilot_accounts.json")
 BASELINE_PATH = os.path.join(BASE_DIR, "daily_baseline.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
@@ -28,5 +29,8 @@ DASHBOARD_TOKEN = (
     or "changeme"
 )
 RUNTIME_KEY_MANAGEMENT_ENABLED = os.environ.get("OR_ENABLE_RUNTIME_KEY_MANAGEMENT") == "1"
+GITHUB_OAUTH_CLIENT_ID = CONFIG.get("github_oauth_client_id") or os.environ.get("GH_COPILOT_OAUTH_CLIENT_ID", "")
+GITHUB_OAUTH_CLIENT_SECRET = CONFIG.get("github_oauth_client_secret") or os.environ.get("GH_COPILOT_OAUTH_CLIENT_SECRET", "")
+GITHUB_OAUTH_REDIRECT_URI = CONFIG.get("github_oauth_redirect_uri") or os.environ.get("GH_COPILOT_OAUTH_REDIRECT_URI", "")
 PORT = int(CONFIG.get("port", 8899))
 USD_TO_CNY_RATE = CONFIG.get("usd_to_cny_rate", 7.1)
