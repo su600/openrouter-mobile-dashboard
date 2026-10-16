@@ -96,6 +96,28 @@ class TestGitHubCopilot(unittest.TestCase):
         })
         self.assertEqual(usage["quotas"][0]["reset_date"], "2026-11-01T00:00:00Z")
 
+    def test_token_billed_usage_reads_and_aggregates_ai_credits_by_model(self):
+        payload = {"usageItems": [
+            {"model": "Model A", "grossQuantity": 1.25, "grossAmount": 0.12, "netAmount": 0.0},
+            {"model": "Model A", "grossQuantity": 0.75, "grossAmount": 0.08, "netAmount": 0.0},
+            {"model": "Model B", "grossQuantity": 3.0, "grossAmount": 0.30, "netAmount": 0.1},
+        ]}
+        with patch.object(github_copilot, "_github_get", return_value=payload) as get:
+            usage = github_copilot._model_usage("usage-user", "stored-oauth-token", token_based_billing=True)
+        self.assertIn("/billing/ai_credit/usage?", get.call_args.args[0])
+        self.assertEqual(usage["unit_label"], "AI Credits")
+        self.assertEqual(usage["total_usage"], 5.0)
+        self.assertEqual(usage["items"][0]["model"], "Model B")
+        self.assertEqual(usage["items"][0]["quantity"], 3.0)
+        self.assertEqual(usage["items"][1]["quantity"], 2.0)
+
+    def test_request_billed_usage_reads_premium_request_endpoint(self):
+        with patch.object(github_copilot, "_github_get", return_value={"usageItems": []}) as get:
+            usage = github_copilot._model_usage("usage-user", "stored-oauth-token")
+        self.assertIn("/billing/premium_request/usage?", get.call_args.args[0])
+        self.assertEqual(usage["unit_label"], "高级请求")
+        self.assertEqual(usage["total_usage"], 0)
+
     def test_usage_uses_stored_account_token(self):
         with patch.object(github_copilot, "_github_get", side_effect=[
             {"id": 456, "login": "usage-user"},

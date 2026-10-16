@@ -7,6 +7,7 @@ import os
 import secrets
 import threading
 import time
+from datetime import date, datetime, timezone
 from urllib.parse import urlencode
 
 import requests
@@ -16,6 +17,7 @@ from config import (
     GITHUB_OAUTH_CLIENT_ID,
     GITHUB_OAUTH_CLIENT_SECRET,
     GITHUB_OAUTH_REDIRECT_URI,
+    GITHUB_OAUTH_SCOPE,
 )
 
 SESSION = requests.Session()
@@ -49,7 +51,7 @@ def begin_oauth():
     params = {
         "client_id": GITHUB_OAUTH_CLIENT_ID,
         "redirect_uri": GITHUB_OAUTH_REDIRECT_URI,
-        "scope": "read:user",
+        "scope": GITHUB_OAUTH_SCOPE,
         "state": state,
     }
     return "https://github.com/login/oauth/authorize?" + urlencode(params)
@@ -109,7 +111,8 @@ def _read_accounts():
 
 
 def _save_accounts(accounts):
-    path = GITHUB_COPILOT_ACCOUNTS_PATH
+    # 解析符号链接到真实位置（容器中为 /data），避免在只读的 /app 下写临时文件
+    path = os.path.realpath(GITHUB_COPILOT_ACCOUNTS_PATH)
     directory = os.path.dirname(path)
     if directory:
         os.makedirs(directory, exist_ok=True)
@@ -243,11 +246,113 @@ def normalize_usage(payload):
     }
 
 
+def _plan_details(payload):
+    """订阅计划、重置日期、高级请求配额与超额、功能开关。"""
+    reset = payload.get("quota_reset_date_utc") or payload.get("quota_reset_date")
+    days_to_reset = None
+    if reset:
+        try:
+            reset_day = date.fromisoformat(str(reset)[:10])
+            days_to_reset = (reset_day - datetime.now(timezone.utc).date()).days
+        except ValueError:
+            days_to_reset = None
+    snapshots = payload.get("quota_snapshots") if isinstance(payload.get("quota_snapshots"), dict) else {}
+    premium = snapshots.get("premium_interactions")
+    premium_info = None
+    if isinstance(premium, dict):
+        entitlement = _number(premium.get("entitlement"))
+        remaining = _number(premium.get("remaining"))
+        used = max(0, entitlement - remaining) if entitlement is not None and remaining is not None else None
+        percent_used = round(used / entitlement * 100, 1) if used is not None and entitlement else None
+        premium_info = {
+            "entitlement": entitlement,
+            "remaining": remaining,
+            "used": used,
+            "percent_used": min(100, percent_used) if percent_used is not None else None,
+            "unlimited": bool(premium.get("unlimited", False)),
+            "overage_permitted": bool(premium.get("overage_permitted", False)),
+            "overage_count": _number(premium.get("overage_count")) or 0,
+            "overage_limit": _number(premium.get("overage_entitlement")),
+            "credits_used": _number(premium.get("credits_used")),
+        }
+    organizations = payload.get("organization_login_list")
+    return {
+        "sku": payload.get("access_type_sku"),
+        "reset_date": reset,
+        "days_to_reset": days_to_reset,
+        "premium": premium_info,
+        "features": {
+            "chat": bool(payload.get("chat_enabled")),
+            "cli": bool(payload.get("cli_enabled")),
+            "token_based_billing": bool(payload.get("token_based_billing")),
+        },
+        "organizations": [str(item) for item in organizations] if isinstance(organizations, list) else [],
+    }
+
+
+def _model_usage(login, token, token_based_billing=False):
+    """按模型读取本月 AI Credits 或高级请求用量。"""
+    now = datetime.now(timezone.utc)
+    period = f"{now.year}-{now.month:02d}"
+    unit_label = "AI Credits" if token_based_billing else "高级请求"
+    if not login:
+        return {"available": False, "reason": "缺少账户登录名", "period": period, "unit_label": unit_label, "items": []}
+    billing_kind = "ai_credit" if token_based_billing else "premium_request"
+    try:
+        payload = _github_get(
+            f"/users/{login}/settings/billing/{billing_kind}/usage?year={now.year}&month={now.month}",
+            token,
+        )
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else None
+        if status in (401, 403, 404):
+            reason = f"GitHub 拒绝读取{unit_label}账单（HTTP {status}）。请确认账号有权查看个人账单，并重新连接 GitHub。"
+        else:
+            reason = f"GitHub 账单接口返回 HTTP {status}"
+        return {"available": False, "reason": reason, "period": period, "unit_label": unit_label, "items": []}
+    except Exception:
+        return {"available": False, "reason": "账单接口请求失败，请稍后刷新", "period": period, "unit_label": unit_label, "items": []}
+
+    by_model = {}
+    for item in payload.get("usageItems") or []:
+        if not isinstance(item, dict):
+            continue
+        model = str(item.get("model") or item.get("sku") or "未知")
+        row = by_model.setdefault(model, {"model": model, "quantity": 0.0, "gross_amount": 0.0, "net_amount": 0.0})
+        row["quantity"] += _number(item.get("grossQuantity")) or 0
+        row["gross_amount"] += _number(item.get("grossAmount")) or 0
+        row["net_amount"] += _number(item.get("netAmount")) or 0
+    total = sum(row["quantity"] for row in by_model.values())
+    items = sorted(by_model.values(), key=lambda row: row["quantity"], reverse=True)
+    for row in items:
+        row["share_percent"] = round(row["quantity"] / total * 100, 1) if total else 0
+        row["quantity"] = round(row["quantity"], 6 if token_based_billing else 2)
+        row["gross_amount"] = round(row["gross_amount"], 4)
+        row["net_amount"] = round(row["net_amount"], 4)
+    return {
+        "available": True,
+        "reason": None if items else f"本月暂无按模型的{unit_label}记录",
+        "period": period,
+        "unit_label": unit_label,
+        "total_usage": round(total, 6 if token_based_billing else 2),
+        "total_net_amount": round(sum(row["net_amount"] for row in items), 4),
+        "items": items,
+    }
+
+
 def get_usage(account_id):
     account = next((item for item in _read_accounts() if item.get("id") == account_id), None)
     if not account:
         raise KeyError("GitHub Copilot 账户不存在")
-    payload = _github_get("/copilot_internal/user", account["token"])
+    token = account["token"]
+    payload = _github_get("/copilot_internal/user", token)
     if not isinstance(payload, dict):
         raise ValueError("GitHub Copilot 返回的数据格式无效")
-    return normalize_usage(payload)
+    usage = normalize_usage(payload)
+    usage.update(_plan_details(payload))
+    usage["account"] = public_account(account)
+    usage["models"] = _model_usage(
+        account.get("login"), token,
+        token_based_billing=usage["features"]["token_based_billing"],
+    )
+    return usage

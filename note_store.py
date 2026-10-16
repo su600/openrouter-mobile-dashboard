@@ -7,7 +7,7 @@ import threading
 
 from config import BASE_DIR
 
-NOTE_PATH = os.path.join(BASE_DIR, "dashboard_note.txt")
+NOTE_PATH = os.path.realpath(os.path.join(BASE_DIR, "dashboard_note.txt"))
 NOTE_MAX_LENGTH = 100_000
 _note_lock = threading.Lock()
 

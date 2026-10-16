@@ -1,0 +1,14 @@
+.git
+__pycache__/
+*.py[cod]
+.env
+data/
+config.json
+accounts.json
+runtime_keys.json
+widget_readonly_token
+github_copilot_accounts.json
+daily_baseline.json
+*.log
+android-widget/
+tests/

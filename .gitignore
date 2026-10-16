@@ -1,4 +1,6 @@
 # 真实配置与运行时数据，请勿提交
+.env
+data/
 config.json
 accounts.json
 runtime_keys.json

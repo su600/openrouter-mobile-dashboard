@@ -104,11 +104,13 @@ def load_accounts():
 
 
 def save_accounts(data):
-    tmp = ACCOUNTS_PATH + ".tmp"
+    # 解析符号链接到真实位置（容器中为 /data），避免在只读的 /app 下写临时文件
+    target = os.path.realpath(ACCOUNTS_PATH)
+    tmp = target + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.chmod(tmp, 0o600)
-    os.replace(tmp, ACCOUNTS_PATH)
+    os.replace(tmp, target)
 
 
 def get_account(account_id=None):

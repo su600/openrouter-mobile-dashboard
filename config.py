@@ -32,5 +32,7 @@ RUNTIME_KEY_MANAGEMENT_ENABLED = os.environ.get("OR_ENABLE_RUNTIME_KEY_MANAGEMEN
 GITHUB_OAUTH_CLIENT_ID = CONFIG.get("github_oauth_client_id") or os.environ.get("GH_COPILOT_OAUTH_CLIENT_ID", "")
 GITHUB_OAUTH_CLIENT_SECRET = CONFIG.get("github_oauth_client_secret") or os.environ.get("GH_COPILOT_OAUTH_CLIENT_SECRET", "")
 GITHUB_OAUTH_REDIRECT_URI = CONFIG.get("github_oauth_redirect_uri") or os.environ.get("GH_COPILOT_OAUTH_REDIRECT_URI", "")
+# 默认只读；如需按模型的账单用量，需设为 user（重新授权后生效）
+GITHUB_OAUTH_SCOPE = os.environ.get("GH_COPILOT_OAUTH_SCOPE", "read:user")
 PORT = int(CONFIG.get("port", 8899))
 USD_TO_CNY_RATE = CONFIG.get("usd_to_cny_rate", 7.1)

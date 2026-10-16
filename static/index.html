@@ -229,6 +229,27 @@
   .copilot-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
   .copilot-status { min-height: 18px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
   .copilot-status.error { color: var(--danger); }
+  .copilot-account-label { font-weight: 600; margin-right: auto; min-width: 0; overflow-wrap: anywhere; }
+  .github-brand-title { display: inline-flex; align-items: center; gap: 8px; }
+  .github-brand-logo { width: 22px; height: 22px; flex: 0 0 auto; filter: invert(1); }
+  html[data-theme="light"] .github-brand-logo { filter: none; }
+  .github-account-logo { display: none; width: 18px; height: 18px; flex: 0 0 auto; filter: invert(1); }
+  body.gh-mode .github-account-logo { display: block; }
+  html[data-theme="light"] .github-account-logo { filter: none; }
+  body.gh-mode #update-time { display: none; }
+  .copilot-model-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .copilot-model-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #copilot-section { display: none; }
+  body.gh-mode #copilot-section { display: block; }
+  body.gh-mode .container > .card:not(#copilot-section) { display: none !important; }
+  body.gh-mode #openrouter-usage-breakdown { display: none !important; }
+  .copilot-section-title { color: var(--text-muted); font-size: 12px; margin: 14px 0 8px; }
+  .copilot-models table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .copilot-models th, .copilot-models td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--chip-border); }
+  .copilot-models .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .copilot-share { height: 6px; min-width: 80px; border-radius: 99px; overflow: hidden; background: var(--chip-border); }
+  .copilot-share span { display: block; height: 100%; background: var(--accent); }
+  .copilot-hint { padding: 10px 12px; border-radius: 10px; background: var(--chip-border); color: var(--text-muted); font-size: 12px; line-height: 1.6; }
   .stat-item.clickable { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: -4px -6px; transition: background 0.15s ease; }
   .stat-item.clickable:hover { background: var(--chip-bg); }
   .stat-item.clickable:active { transform: scale(0.98); }
@@ -1195,6 +1216,7 @@
     </div>
     <div class="account-row">
       <label class="account-label">账户</label>
+      <img class="github-account-logo" src="/logos/github.svg" alt="" aria-hidden="true">
       <select id="account-select" onchange="switchAccount()"></select>
       <button class="account-manage-btn" onclick="openAccountsModal()" title="管理 API Key">⚙️ 管理</button>
     </div>
@@ -1235,17 +1257,18 @@
 
     <div class="card" id="copilot-section">
       <div class="card-title">
-        <span>🐙 GitHub Copilot 订阅与用量</span>
+        <span class="github-brand-title">
+          <img class="github-brand-logo" src="/logos/github.svg" alt="" aria-hidden="true">
+          <span>GitHub Copilot 订阅与用量</span>
+        </span>
         <div class="header-actions">
           <button class="refresh-btn" id="copilot-refresh-btn" onclick="loadCopilotUsage(true)">刷新</button>
           <button class="refresh-btn latest-model-btn" onclick="connectCopilotAccount()">连接 GitHub</button>
         </div>
       </div>
       <div class="copilot-account-row">
-        <label class="account-label" for="copilot-account-select">Copilot 账户</label>
-        <select id="copilot-account-select" onchange="switchCopilotAccount()">
-          <option value="">尚未连接</option>
-        </select>
+        <span class="account-label">当前账户</span>
+        <span id="copilot-account-label" class="copilot-account-label">尚未连接</span>
         <button class="account-manage-btn" id="copilot-disconnect-btn" onclick="disconnectCopilotAccount()" disabled>断开</button>
       </div>
       <div class="copilot-card-grid" id="copilot-card-grid">
@@ -1255,6 +1278,7 @@
           <div class="copilot-metric-sub">使用 GitHub OAuth 连接 Copilot 账户</div>
         </div>
       </div>
+      <div class="copilot-models" id="copilot-models"></div>
       <div class="copilot-status" id="copilot-status" aria-live="polite">连接 GitHub 后在此查看账户计划及可用的配额信息。</div>
     </div>
 
@@ -1265,7 +1289,7 @@
       </div>
     </div>
 
-    <div class="grid-2col">
+    <div class="grid-2col" id="openrouter-usage-breakdown">
       <div class="card">
         <div class="card-title"><span>近30天消费趋势 (USD/天)</span></div>
         <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
@@ -1519,6 +1543,11 @@ async function loadData(options = {}) {
   const force = options.force === true;
   const token = getToken();
   if (!token) { showLogin(); return; }
+  if (isGithubAccountId(currentAccountId)) {
+    applyViewMode();
+    loadCopilotUsage(force);
+    return;
+  }
   if (activeSummaryRequest) {
     if (!force) return;
     activeSummaryRequest.abort();
@@ -2016,6 +2045,7 @@ function setupScrollFade(listEl, fadeEl) {
 function getModelIcon(modelName) {
   const name = modelName.toLowerCase();
   const logoMap = [
+    { keys: ["code review", "github copilot"], file: "github.svg", bg: "#ffffff" },
     { keys: ["claude", "anthropic"], file: "anthropic.svg", bg: "#CC9B7A" },
     { keys: ["gpt", "openai", "o1", "o3", "o4"], file: "openai.svg", bg: "#ffffff" },
     { keys: ["deepseek"], file: "deepseek.png", bg: "#ffffff" },
@@ -2220,13 +2250,14 @@ async function loadAccounts() {
     const data = await resp.json();
     accounts = data.accounts || [];
     if (!accounts.length) return;
-    const valid = accounts.some(a => a.id === currentAccountId);
+    const valid = accounts.some(a => a.id === currentAccountId) || isGithubAccountId(currentAccountId);
     if (!valid) {
       const active = data.active && accounts.some(a => a.id === data.active) ? data.active : accounts[0].id;
       currentAccountId = active;
       localStorage.setItem("or_dashboard_account", currentAccountId);
     }
     renderAccountSelect();
+    applyViewMode();
   } catch (e) {
     // 静默失败，不影响主看板
   } finally {
@@ -2244,12 +2275,26 @@ function accountAccessTitle(status) {
   return `${status.emoji || "❓"} ${status.label || "未标记"}（${source}，未通过模型调用验证）`;
 }
 
+function isGithubAccountId(id) {
+  return typeof id === "string" && id.startsWith("github_");
+}
+
+function applyViewMode() {
+  document.body.classList.toggle("gh-mode", isGithubAccountId(currentAccountId));
+}
+
 function renderAccountSelect() {
   const sel = document.getElementById("account-select");
   if (!sel) return;
-  sel.innerHTML = accounts.map(a =>
-    `<option value="${a.id}" ${a.id === currentAccountId ? "selected" : ""}>${accountAccessEmoji(a.access_status)} ${escapeHtml(a.name)}</option>`
+  const orOptions = accounts.map(a =>
+    `<option value="${escapeHtml(a.id)}" ${a.id === currentAccountId ? "selected" : ""}>${accountAccessEmoji(a.access_status)} ${escapeHtml(a.name)}</option>`
   ).join("");
+  const ghOptions = copilotAccounts.map(a =>
+    `<option value="${escapeHtml(a.id)}" ${a.id === currentAccountId ? "selected" : ""}>GitHub @${escapeHtml(a.login)}</option>`
+  ).join("");
+  sel.innerHTML = (orOptions ? `<optgroup label="OpenRouter">${orOptions}</optgroup>` : "")
+    + (ghOptions ? `<optgroup label="GitHub Copilot">${ghOptions}</optgroup>` : "")
+    + `<option value="__connect_copilot__">＋ 连接 GitHub Copilot…</option>`;
   const current = accounts.find(a => a.id === currentAccountId);
   if (current) sel.title = accountAccessTitle(current.access_status);
 }
@@ -2257,9 +2302,22 @@ function renderAccountSelect() {
 function switchAccount() {
   const sel = document.getElementById("account-select");
   if (!sel) return;
+  if (sel.value === "__connect_copilot__") {
+    renderAccountSelect();
+    connectCopilotAccount();
+    return;
+  }
   currentAccountId = sel.value;
   localStorage.setItem("or_dashboard_account", currentAccountId);
-  loadData();
+  applyViewMode();
+  if (isGithubAccountId(currentAccountId)) {
+    currentCopilotAccountId = currentAccountId;
+    localStorage.setItem("github_copilot_account", currentAccountId);
+    renderCopilotAccounts();
+    loadCopilotUsage();
+  } else {
+    loadData();
+  }
 }
 
 async function loadCopilotAccounts() {
@@ -2268,34 +2326,38 @@ async function loadCopilotAccounts() {
   try {
     const response = await fetch(`/api/copilot/accounts?token=${encodeURIComponent(token)}`, { cache: "no-store" });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "读取 Copilot 账户失败");
+    if (!response.ok || data.error) throw new Error(data.error || "读取 Copilot 账户失败");
     copilotAccounts = data.accounts || [];
     if (!copilotAccounts.some(account => account.id === currentCopilotAccountId)) {
       currentCopilotAccountId = copilotAccounts[0]?.id || null;
       if (currentCopilotAccountId) localStorage.setItem("github_copilot_account", currentCopilotAccountId);
       else localStorage.removeItem("github_copilot_account");
     }
+    if (isGithubAccountId(currentAccountId)) {
+      if (copilotAccounts.some(account => account.id === currentAccountId)) {
+        currentCopilotAccountId = currentAccountId;
+      } else {
+        // 之前选中的 GitHub 账户已不存在，回退到 OpenRouter 视图
+        currentAccountId = accounts[0]?.id || null;
+        if (currentAccountId) localStorage.setItem("or_dashboard_account", currentAccountId);
+      }
+    }
     renderCopilotAccounts();
-    if (currentCopilotAccountId) await loadCopilotUsage();
-    else setCopilotStatus("尚未连接 GitHub Copilot 账户。");
+    applyViewMode();
+    if (isGithubAccountId(currentAccountId)) await loadCopilotUsage();
+    else if (!copilotAccounts.length) setCopilotStatus("连接 GitHub 后可在上方下拉中切换到 Copilot 视图。");
   } catch (error) {
     setCopilotStatus(error.message || "无法读取 Copilot 账户。", true);
   }
 }
 
 function renderCopilotAccounts() {
-  const select = document.getElementById("copilot-account-select");
+  renderAccountSelect();
+  const label = document.getElementById("copilot-account-label");
   const disconnectButton = document.getElementById("copilot-disconnect-btn");
-  if (!select) return;
-  if (!copilotAccounts.length) {
-    select.innerHTML = '<option value="">尚未连接</option>';
-    disconnectButton.disabled = true;
-    return;
-  }
-  select.innerHTML = copilotAccounts.map(account =>
-    `<option value="${escapeHtml(account.id)}" ${account.id === currentCopilotAccountId ? "selected" : ""}>${escapeHtml(account.login)}</option>`
-  ).join("");
-  disconnectButton.disabled = false;
+  const selected = copilotAccounts.find(account => account.id === currentCopilotAccountId);
+  if (label) label.textContent = selected ? `GitHub @${selected.login}` : "尚未连接";
+  if (disconnectButton) disconnectButton.disabled = !selected;
 }
 
 function setCopilotStatus(message, isError = false) {
@@ -2312,49 +2374,66 @@ function connectCopilotAccount() {
   window.location.href = `/api/copilot/oauth/start?token=${encodeURIComponent(token)}`;
 }
 
-function switchCopilotAccount() {
-  const select = document.getElementById("copilot-account-select");
-  if (!select) return;
-  currentCopilotAccountId = select.value || null;
-  if (currentCopilotAccountId) localStorage.setItem("github_copilot_account", currentCopilotAccountId);
-  else localStorage.removeItem("github_copilot_account");
-  renderCopilotAccounts();
-  loadCopilotUsage();
+
+function formatCopilotNumber(value, maximumFractionDigits = 1) {
+  return value == null ? "—" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits });
 }
 
-function formatCopilotNumber(value) {
-  return value == null ? "—" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 1 });
+const COPILOT_PLAN_LABELS = { individual: "个人版 Individual", business: "商业版 Business", enterprise: "企业版 Enterprise" };
+const COPILOT_SKU_LABELS = { monthly_subscriber_quota: "月度订阅", monthly_subscriber: "月度订阅" };
+
+function copilotMoney(value) {
+  return value == null ? "—" : "$" + Number(value).toFixed(2);
 }
 
 function renderCopilotUsage(data) {
   const grid = document.getElementById("copilot-card-grid");
-  const selected = copilotAccounts.find(account => account.id === currentCopilotAccountId);
-  const plan = data.plan || "计划信息不可用";
-  const cards = [{
-    label: "订阅计划",
-    value: plan,
-    detail: selected ? `GitHub @${selected.login}` : "GitHub Copilot",
-  }];
-  for (const quota of data.quotas || []) {
-    const available = quota.remaining;
-    const entitlement = quota.entitlement;
-    const used = entitlement != null && available != null ? Math.max(0, entitlement - available) : null;
-    const remainingPercent = quota.percent_remaining == null ? null : Math.max(0, Math.min(100, quota.percent_remaining));
-    const details = [];
-    if (used != null && entitlement != null) details.push(`已用 ${formatCopilotNumber(used)} / ${formatCopilotNumber(entitlement)}`);
-    else if (entitlement != null) details.push(`额度 ${formatCopilotNumber(entitlement)}`);
-    if (available != null) details.push(`剩余 ${formatCopilotNumber(available)}`);
-    if (quota.reset_date) {
-      const reset = new Date(quota.reset_date);
-      details.push(`重置 ${Number.isNaN(reset.getTime()) ? quota.reset_date : reset.toLocaleDateString("zh-CN")}`);
-    }
+  const account = data.account || copilotAccounts.find(item => item.id === currentCopilotAccountId);
+  const cards = [];
+  const accountLabel = document.getElementById("copilot-account-label");
+  if (accountLabel) {
+    accountLabel.textContent = [
+      account ? `GitHub @${account.login}` : null,
+      COPILOT_PLAN_LABELS[data.plan] || data.plan || null,
+      COPILOT_SKU_LABELS[data.sku] || data.sku || null,
+    ].filter(Boolean).join(" · ") || "尚未连接";
+  }
+  const premium = data.premium;
+  if (premium) {
+    const usedPercent = premium.percent_used;
     cards.push({
-      label: quota.label,
-      value: quota.unlimited ? "无限" : available == null ? "—" : formatCopilotNumber(available),
-      detail: details.join(" · ") || "GitHub 未提供此项额度详情",
-      progress: remainingPercent,
+      label: "高级请求",
+      value: premium.unlimited ? "无限" : `${formatCopilotNumber(premium.used)} / ${formatCopilotNumber(premium.entitlement)}`,
+      detail: [
+        premium.remaining != null ? `剩余 ${formatCopilotNumber(premium.remaining)}` : null,
+        usedPercent != null ? `已用 ${usedPercent}%` : null,
+      ].filter(Boolean).join(" · ") || "GitHub 未提供详情",
+      progress: usedPercent == null ? null : Math.max(0, 100 - usedPercent),
+    });
+    cards.push({
+      label: "超额计费",
+      value: premium.overage_permitted ? "允许" : "不允许",
+      detail: premium.overage_permitted
+        ? `已超额 ${formatCopilotNumber(premium.overage_count)}${premium.overage_limit != null ? ` / 上限 ${formatCopilotNumber(premium.overage_limit)}` : ""}`
+        : "用完额度后不能继续使用高级模型",
     });
   }
+  if (data.days_to_reset != null) {
+    const reset = new Date(data.reset_date);
+    cards.push({
+      label: "距离重置",
+      value: `${data.days_to_reset} 天`,
+      detail: `重置日 ${Number.isNaN(reset.getTime()) ? data.reset_date : reset.toLocaleDateString("zh-CN")}`,
+    });
+  }
+  const models = data.models || {};
+  cards.push({
+    label: models.unit_label === "AI Credits" ? "本月 AI Credits" : "本月高级请求",
+    value: models.available ? formatCopilotNumber(models.total_usage) : "—",
+    detail: models.available
+      ? `${models.period} · 净额 ${copilotMoney(models.total_net_amount)}`
+      : `${models.period || ""} · ${models.reason || "账单数据不可用"}`,
+  });
   grid.innerHTML = cards.map(card => `
     <div class="copilot-metric">
       <div class="copilot-metric-label">${escapeHtml(card.label)}</div>
@@ -2362,8 +2441,33 @@ function renderCopilotUsage(data) {
       <div class="copilot-metric-sub">${escapeHtml(card.detail)}</div>
       ${card.progress == null ? "" : `<div class="copilot-progress" aria-label="剩余 ${card.progress}%"><span style="width:${card.progress}%"></span></div>`}
     </div>`).join("");
+  renderCopilotModels(models);
   const timestamp = Number(data.fetched_at);
   setCopilotStatus(timestamp ? `用量更新时间：${new Date(timestamp * 1000).toLocaleString("zh-CN")} · 数据以 GitHub 当前可用接口为准。` : "已加载 Copilot 用量。");
+}
+
+function renderCopilotModels(models) {
+  const el = document.getElementById("copilot-models");
+  if (!el) return;
+  if (!models || !models.available || !models.items?.length) {
+    el.innerHTML = `<div class="copilot-hint">${escapeHtml(models?.reason || "暂无按模型的用量数据")}</div>`;
+    return;
+  }
+  const unitLabel = models.unit_label || "高级请求";
+  const fractionDigits = unitLabel === "AI Credits" ? 3 : 1;
+  el.innerHTML = `
+    <div class="copilot-section-title">${escapeHtml(models.period)} 各模型${escapeHtml(unitLabel)}（合计 ${formatCopilotNumber(models.total_usage, fractionDigits)}）</div>
+    <table>
+      <thead><tr><th>模型</th><th class="num">用量（${escapeHtml(unitLabel)}）</th><th>占比</th><th class="num">净额</th></tr></thead>
+      <tbody>${models.items.map(row => `
+        <tr>
+          <td><div class="copilot-model-name">${getModelIcon(row.model)}<span>${escapeHtml(row.model)}</span></div></td>
+          <td class="num">${formatCopilotNumber(row.quantity, fractionDigits)}</td>
+          <td><div class="copilot-share"><span style="width:${row.share_percent}%"></span></div></td>
+          <td class="num">${copilotMoney(row.net_amount)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
 }
 
 async function loadCopilotUsage(force = false) {
@@ -2404,10 +2508,16 @@ async function disconnectCopilotAccount() {
     currentCopilotAccountId = copilotAccounts[0]?.id || null;
     if (currentCopilotAccountId) localStorage.setItem("github_copilot_account", currentCopilotAccountId);
     else localStorage.removeItem("github_copilot_account");
+    if (currentAccountId === account.id) {
+      currentAccountId = accounts[0]?.id || null;
+      if (currentAccountId) localStorage.setItem("or_dashboard_account", currentAccountId);
+    }
     renderCopilotAccounts();
-    if (currentCopilotAccountId) await loadCopilotUsage();
-    else {
-      document.getElementById("copilot-card-grid").innerHTML = '<div class="copilot-metric"><div class="copilot-metric-label">订阅状态</div><div class="copilot-metric-value">尚未连接</div><div class="copilot-metric-sub">使用 GitHub OAuth 连接 Copilot 账户</div></div>';
+    applyViewMode();
+    if (isGithubAccountId(currentAccountId)) {
+      await loadCopilotUsage();
+    } else {
+      loadData();
       setCopilotStatus("GitHub Copilot 账户已从本地看板移除。");
     }
   } catch (error) {
