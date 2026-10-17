@@ -2410,12 +2410,20 @@ function renderCopilotUsage(data) {
       ].filter(Boolean).join(" · ") || "GitHub 未提供详情",
       progress: usedPercent == null ? null : Math.max(0, 100 - usedPercent),
     });
+    const dailyModels = data.daily_models || {};
+    const overageDetail = `已超额 ${formatCopilotNumber(premium.overage_count)}${premium.overage_limit != null ? ` / 上限 ${formatCopilotNumber(premium.overage_limit)}` : ""}`;
+    const dailyUnitLabel = dailyModels.unit_label === "AI Credits" ? "AI Credits" : "高级请求";
     cards.push({
-      label: "超额计费",
-      value: premium.overage_permitted ? "允许" : "不允许",
-      detail: premium.overage_permitted
-        ? `已超额 ${formatCopilotNumber(premium.overage_count)}${premium.overage_limit != null ? ` / 上限 ${formatCopilotNumber(premium.overage_limit)}` : ""}`
-        : "用完额度后不能继续使用高级模型",
+      label: `当日 ${dailyUnitLabel}`,
+      value: dailyModels.available
+        ? formatCopilotNumber(dailyModels.total_usage, dailyModels.unit_label === "AI Credits" ? 3 : 1)
+        : "—",
+      detail: [
+        dailyModels.available
+          ? dailyModels.period
+          : [dailyModels.period, dailyModels.reason || "当日账单数据不可用"].filter(Boolean).join(" · "),
+        overageDetail,
+      ].filter(Boolean).join(" · "),
     });
   }
   if (data.days_to_reset != null) {

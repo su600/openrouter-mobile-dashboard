@@ -26,6 +26,7 @@ _oauth_lock = threading.Lock()
 _oauth_states = {}
 OAUTH_STATE_TTL = 600
 GITHUB_API = "https://api.github.com"
+GITHUB_API_VERSION = "2026-03-10"
 
 QUOTA_LABELS = {
     "premium_interactions": "高级请求",
@@ -93,7 +94,7 @@ def _github_get(path, token):
             "Accept": "application/json",
             "Authorization": "Bearer " + token,
             "User-Agent": "openrouter-mobile-dashboard",
-            "X-GitHub-Api-Version": "2022-11-28",
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
         timeout=15,
     )
@@ -290,17 +291,21 @@ def _plan_details(payload):
     }
 
 
-def _model_usage(login, token, token_based_billing=False):
-    """按模型读取本月 AI Credits 或高级请求用量。"""
+def _model_usage(login, token, token_based_billing=False, daily=False):
+    """按模型读取本月或当日 AI Credits / 高级请求账单用量。"""
     now = datetime.now(timezone.utc)
-    period = f"{now.year}-{now.month:02d}"
+    period = now.strftime("%Y-%m-%d") if daily else f"{now.year}-{now.month:02d}"
+    query = f"year={now.year}&month={now.month}"
+    if daily:
+        query += f"&day={now.day}"
     unit_label = "AI Credits" if token_based_billing else "高级请求"
+    period_name = "当日" if daily else "本月"
     if not login:
         return {"available": False, "reason": "缺少账户登录名", "period": period, "unit_label": unit_label, "items": []}
     billing_kind = "ai_credit" if token_based_billing else "premium_request"
     try:
         payload = _github_get(
-            f"/users/{login}/settings/billing/{billing_kind}/usage?year={now.year}&month={now.month}",
+            f"/users/{login}/settings/billing/{billing_kind}/usage?{query}",
             token,
         )
     except requests.HTTPError as exc:
@@ -331,7 +336,7 @@ def _model_usage(login, token, token_based_billing=False):
         row["net_amount"] = round(row["net_amount"], 4)
     return {
         "available": True,
-        "reason": None if items else f"本月暂无按模型的{unit_label}记录",
+        "reason": None if items else f"{period_name}暂无按模型的{unit_label}记录",
         "period": period,
         "unit_label": unit_label,
         "total_usage": round(total, 6 if token_based_billing else 2),
@@ -351,6 +356,11 @@ def get_usage(account_id):
     usage = normalize_usage(payload)
     usage.update(_plan_details(payload))
     usage["account"] = public_account(account)
+    usage["daily_models"] = _model_usage(
+        account.get("login"), token,
+        token_based_billing=usage["features"]["token_based_billing"],
+        daily=True,
+    )
     usage["models"] = _model_usage(
         account.get("login"), token,
         token_based_billing=usage["features"]["token_based_billing"],

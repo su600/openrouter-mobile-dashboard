@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
@@ -111,6 +112,20 @@ class TestGitHubCopilot(unittest.TestCase):
         self.assertEqual(usage["items"][0]["quantity"], 3.0)
         self.assertEqual(usage["items"][1]["quantity"], 2.0)
 
+    def test_daily_ai_credit_usage_requests_current_utc_day(self):
+        now = datetime.now(timezone.utc)
+        with patch.object(github_copilot, "_github_get", return_value={"usageItems": []}) as get:
+            usage = github_copilot._model_usage(
+                "usage-user", "stored-oauth-token", token_based_billing=True, daily=True,
+            )
+        request_path = get.call_args.args[0]
+        query = parse_qs(urlparse(request_path).query)
+        self.assertIn("/billing/ai_credit/usage?", request_path)
+        self.assertEqual(query, {"year": [str(now.year)], "month": [str(now.month)], "day": [str(now.day)]})
+        self.assertEqual(usage["period"], now.strftime("%Y-%m-%d"))
+        self.assertEqual(usage["unit_label"], "AI Credits")
+        self.assertEqual(usage["reason"], "当日暂无按模型的AI Credits记录")
+
     def test_request_billed_usage_reads_premium_request_endpoint(self):
         with patch.object(github_copilot, "_github_get", return_value={"usageItems": []}) as get:
             usage = github_copilot._model_usage("usage-user", "stored-oauth-token")
@@ -122,11 +137,17 @@ class TestGitHubCopilot(unittest.TestCase):
         with patch.object(github_copilot, "_github_get", side_effect=[
             {"id": 456, "login": "usage-user"},
             {"quota_snapshots": {"premium_interactions": {"remaining": 10}}},
+            {"usageItems": [{"model": "Today", "grossQuantity": 7}]},
+            {"usageItems": [{"model": "Month", "grossQuantity": 12}]},
         ]) as get:
             account = github_copilot.add_oauth_account("stored-oauth-token")
             usage = github_copilot.get_usage(account["id"])
         self.assertEqual(usage["quotas"][0]["remaining"], 10)
+        self.assertEqual(usage["daily_models"]["total_usage"], 7)
+        self.assertEqual(usage["models"]["total_usage"], 12)
         get.assert_any_call("/copilot_internal/user", "stored-oauth-token")
+        self.assertEqual(get.call_args_list[2].args[1], "stored-oauth-token")
+        self.assertIn("&day=", get.call_args_list[2].args[0])
 
 
 if __name__ == "__main__":
