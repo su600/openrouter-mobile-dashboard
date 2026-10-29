@@ -225,6 +225,7 @@
     overflow-wrap: anywhere;
   }
   .copilot-metric-sub { color: var(--text-faint); font-size: 11px; margin-top: 5px; }
+  .copilot-metric-alert { color: var(--danger); font-size: 12px; font-weight: 700; margin-top: 5px; }
   .copilot-progress { height: 6px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: var(--chip-border); }
   .copilot-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
   .copilot-status { min-height: 18px; margin-top: 10px; color: var(--text-muted); font-size: 12px; }
@@ -2399,6 +2400,7 @@ function renderCopilotUsage(data) {
     ].filter(Boolean).join(" · ") || "尚未连接";
   }
   const premium = data.premium;
+  const models = data.models || {};
   if (premium) {
     const usedPercent = premium.percent_used;
     cards.push({
@@ -2428,13 +2430,20 @@ function renderCopilotUsage(data) {
   }
   if (data.days_to_reset != null) {
     const reset = new Date(data.reset_date);
+    const overageAmount = Number(models.total_net_amount);
+    const overageAlert = Number(premium?.overage_count) > 0
+      && models.available
+      && Number.isFinite(overageAmount)
+      && overageAmount > 0
+      ? `超额费用 ${copilotMoney(overageAmount)}`
+      : null;
     cards.push({
       label: "距离重置",
       value: `${data.days_to_reset} 天`,
       detail: `重置日 ${Number.isNaN(reset.getTime()) ? data.reset_date : reset.toLocaleDateString("zh-CN")}`,
+      alert: overageAlert,
     });
   }
-  const models = data.models || {};
   cards.push({
     label: models.unit_label === "AI Credits" ? "本月 AI Credits" : "本月高级请求",
     value: models.available ? formatCopilotNumber(models.total_usage) : "—",
@@ -2446,6 +2455,7 @@ function renderCopilotUsage(data) {
     <div class="copilot-metric">
       <div class="copilot-metric-label">${escapeHtml(card.label)}</div>
       <div class="copilot-metric-value">${escapeHtml(card.value)}</div>
+      ${card.alert ? `<div class="copilot-metric-alert">${escapeHtml(card.alert)}</div>` : ""}
       <div class="copilot-metric-sub">${escapeHtml(card.detail)}</div>
       ${card.progress == null ? "" : `<div class="copilot-progress" aria-label="剩余 ${card.progress}%"><span style="width:${card.progress}%"></span></div>`}
     </div>`).join("");
